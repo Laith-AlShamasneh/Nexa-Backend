@@ -1,12 +1,25 @@
 using System.Threading.RateLimiting;
 using Application.Common.Extensions;
 using Infrastructure.Extensions;
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.RateLimiting;
+using Serilog;
 using WebApi.Common;
+using WebApi.Common.Exceptions;
+using WebApi.Common.Middlewares;
 using WebApi.Endpoints.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Serilog ───────────────────────────────────────────────────────────────────
+// Ported from MyMoney: reads the "Serilog" section (Console + MSSqlServer sinks —
+// see appsettings.json) and replaces the default ASP.NET Core logger provider
+// entirely, so every ILogger<T> call in the app (including GlobalExceptionHandler)
+// flows through it with no extra plumbing.
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -37,6 +50,10 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// Correlation id first so every log line for the request — including early
+// pipeline and exception logs — carries it.
+app.UseMiddleware<CorrelationIdMiddleware>();
+
 app.UseExceptionHandler();
 app.UseRateLimiter();
 
@@ -45,33 +62,14 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// No authentication middleware exists yet (Phase 3 — Identity and Authentication).
+// MyMoney places the equivalent of this middleware after UseAuthentication/
+// UseAuthorization so the logged UserId reflects the authenticated caller; move it
+// there once this project adds JWT auth. Until then, IUserContext.UserId/OrganizationId
+// resolve to their unauthenticated defaults.
+app.UseMiddleware<RequestLoggingMiddleware>();
+
 app.MapHealthChecks("/health");
 app.MapOrganizationEndpoints();
 
 app.Run();
-
-/// <summary>
-/// Last-resort exception boundary: maps any exception that escapes Application-layer
-/// error handling to a ProblemDetails response instead of leaking a stack trace.
-/// Domain-specific exceptions (NotFoundException, ForbiddenException, ValidationAppException)
-/// get their proper status codes here once the Identity phase's endpoints exist to trigger them.
-/// </summary>
-internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
-{
-    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken ct)
-    {
-        logger.LogError(exception, "Unhandled exception processing {Method} {Path}",
-            httpContext.Request.Method, httpContext.Request.Path);
-
-        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
-
-        await httpContext.Response.WriteAsJsonAsync(new
-        {
-            title  = "An unexpected error occurred.",
-            status = StatusCodes.Status500InternalServerError,
-            traceId = httpContext.TraceIdentifier
-        }, ct);
-
-        return true;
-    }
-}

@@ -123,9 +123,11 @@ internal sealed class TenantOnboardingService(
             CorrelationId = TryParseCorrelationId(userContext.TraceId)
         };
 
-        logger.LogInformation(
-            "Tenant registration started for slug {Slug}, correlation {CorrelationId}.",
-            organization.Slug, userContext.TraceId);
+        // No need to interpolate a correlation id into the message text — every log
+        // line for this request already carries one as a structured property via
+        // CorrelationIdMiddleware (see WebApi/Common/Middlewares), landing in its own
+        // queryable column in the Serilog MSSqlServer sink.
+        logger.LogInformation("Tenant registration started for slug {Slug}.", organization.Slug);
 
         RegisterOrganizationDbResult dbResult;
         try

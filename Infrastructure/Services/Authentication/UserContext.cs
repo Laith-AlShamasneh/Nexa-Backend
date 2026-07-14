@@ -66,7 +66,14 @@ internal sealed class UserContext(IHttpContextAccessor httpContextAccessor) : IU
     public string? UserAgent     => Http?.Request.Headers["User-Agent"].ToString();
     public string? SessionId     => Http?.User.FindFirst("session_id")?.Value
                                  ?? Http?.Request.Headers["X-Session-Id"].FirstOrDefault();
-    public string? TraceId       => Http?.TraceIdentifier
+    // Prefers the request-scoped correlation id CorrelationIdMiddleware already
+    // resolved (inbound X-Correlation-Id header, or a fresh Guid — see
+    // WebApi/Common/Middlewares/CorrelationIdMiddleware.cs) so every consumer of
+    // TraceId — Serilog's LogContext, this property, and any audit row that stores
+    // it — agrees on the same value for the request. Falls back to the raw ASP.NET
+    // Core TraceIdentifier if the middleware hasn't run (e.g. a unit test HttpContext).
+    public string? TraceId       => Http?.Items["CorrelationId"] as string
+                                 ?? Http?.TraceIdentifier
                                  ?? Http?.Request.Headers["X-Trace-Id"].FirstOrDefault()
                                  ?? Guid.NewGuid().ToString();
 

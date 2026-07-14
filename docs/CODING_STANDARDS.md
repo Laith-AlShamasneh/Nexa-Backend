@@ -62,6 +62,8 @@
 
 - Structured logging only: `logger.LogError(ex, "Job {JobId} ({JobType}) failed...", job.JobId, job.JobType)` — never string-interpolate values into the message template.
 - Never log secrets — see [ARCHITECTURE_RULES.md](ARCHITECTURE_RULES.md) rule 16 and [SECURITY_BASELINE.md](SECURITY_BASELINE.md).
+- **Serilog is the logging provider** (`builder.Host.UseSerilog()` in `WebApi/Program.cs`), writing to Console and to a dedicated `NexaLogs` database (`Serilog:WriteTo:MSSqlServer` in `appsettings.json`) — every `ILogger<T>` call in the app goes through it, no extra plumbing needed in application code.
+- **Don't put a correlation/request id in the message text.** `CorrelationIdMiddleware` already pushes `CorrelationId` onto Serilog's `LogContext` for the whole request (alongside `UserId`, `OrganizationId`, `IPAddress`, `RequestPath`, `RequestMethod`) — every log line for that request gets it as its own queryable column in `NexaLogs.dbo.ApplicationLogs` automatically. Repeating it inside `LogInformation("...{CorrelationId}...", id)` is redundant and, worse, can silently drift from the actual per-request value if a different id is threaded in by hand (this happened once — see the Tenant Onboarding module's history).
 
 ## Validation conventions
 
