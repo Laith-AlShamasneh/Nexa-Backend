@@ -2,6 +2,7 @@ using Application.Features.Authentication.Services;
 using Application.Features.Notifications;
 using Application.Features.Notifications.Services;
 using Application.Features.Onboarding.Services;
+using Application.Features.Tenancy.Services;
 using Application.Interfaces.Services;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOnboardingService, OnboardingService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<INotificationPublisher, NotificationPublisher>();
+        services.AddScoped<ITenantOnboardingService, TenantOnboardingService>();
 
         services.AddValidatorsFromAssemblyContaining(typeof(ServiceCollectionExtensions));
 

@@ -81,6 +81,29 @@ public static class MessageKeys
         public const string LogoutSuccess              = "Authentication.LogoutSuccess";
     }
 
+    public static class Tenancy
+    {
+        // Validation
+        public const string OrganizationNameRequired = "Tenancy.OrganizationNameRequired";
+        public const string InvalidOrganizationEmail = "Tenancy.InvalidOrganizationEmail";
+        public const string UnsupportedCurrencyCode   = "Tenancy.UnsupportedCurrencyCode";
+        public const string UnsupportedLanguageCode   = "Tenancy.UnsupportedLanguageCode";
+        public const string UnsupportedTimeZone       = "Tenancy.UnsupportedTimeZone";
+        public const string BranchNameRequired        = "Tenancy.BranchNameRequired";
+        public const string OwnerFirstNameRequired    = "Tenancy.OwnerFirstNameRequired";
+        public const string OwnerLastNameRequired     = "Tenancy.OwnerLastNameRequired";
+        public const string OwnerUsernameRequired     = "Tenancy.OwnerUsernameRequired";
+        public const string OwnerEmailRequired        = "Tenancy.OwnerEmailRequired";
+        public const string InvalidOwnerEmail         = "Tenancy.InvalidOwnerEmail";
+        public const string PasswordMismatch          = "Tenancy.PasswordMismatch";
+
+        // Business
+        public const string RegistrationSucceeded      = "Tenancy.RegistrationSucceeded";
+        public const string RegistrationFailed          = "Tenancy.RegistrationFailed";
+        public const string OrganizationSlugConflict    = "Tenancy.OrganizationSlugConflict";
+        public const string RoleTemplatesMissing        = "Tenancy.RoleTemplatesMissing";
+    }
+
     // Used by the Authentication feature's email-change sub-flow (verify current
     // password, request/confirm/cancel a pending email change).
     public static class Profile

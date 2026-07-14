@@ -15,6 +15,18 @@ Every tenant (an "Organization" — see [PRODUCT_CONTEXT.md](../PRODUCT_CONTEXT.
 3. `Infrastructure/Services/Authentication/UserContext.cs` (implementing `Application.Interfaces.Services.IUserContext`) reads `org_id` from the authenticated `ClaimsPrincipal` and exposes it as `Guid? OrganizationId`.
 4. Application services and Infrastructure repositories read `IUserContext.OrganizationId` — they never re-derive it from anywhere else.
 
+## Pre-authentication tenant creation (the one documented exception)
+
+`POST /api/organizations/register` (Tenant Onboarding — see [docs/TENANT_ONBOARDING.md](TENANT_ONBOARDING.md)) is the **single exception** to "tenant context always comes from the authenticated JWT." There is no tenant yet at this point, so there is no `org_id` claim to read — the endpoint's entire job is to create the tenant a future JWT would reference.
+
+How the exception stays safe:
+
+- **`OrganizationId` is generated internally, never accepted from the request.** `TenantOnboardingService` calls `Organization.Create(...)`, which generates its own `Guid.CreateVersion7()` Id — `Application/Features/Tenancy/DTOs/RegisterOrganizationDtos.cs` has no `OrganizationId` property for a client to populate even by mistake.
+- **Every row the registration writes uses that one generated value.** `tenant.usp_Organization_Register` (migration 011) takes `@OrganizationId` as a single input parameter and every INSERT — Organizations, Branches, OrganizationSettings, Persons, Users, cloned Roles, cloned RolePermissions, UserRoles, EmailConfirmationTokens, AuditLogs — uses that same parameter. There is no path in the procedure where a row could be written against a different `OrganizationId`.
+- **Role-template cloning reads global data only.** The only rows this workflow reads *outside* the new tenant are the four system role templates and their permissions (`identity.Roles`/`RolePermissions` where `OrganizationId IS NULL`) — both intentionally global and read-only from every tenant's perspective, not another tenant's private data.
+- **The transaction is atomic.** See [docs/TENANT_ONBOARDING.md](TENANT_ONBOARDING.md) "Transaction boundary" — a failure partway through leaves no partial tenant behind for a subsequent request to accidentally attach to.
+- **No endpoint after this one accepts a client-supplied `OrganizationId` either** — this exception is scoped to the one operation that creates a tenant, not a general precedent for trusting client-supplied tenant IDs anywhere else in the platform.
+
 ## The CurrentTenant / CurrentUser abstraction
 
 `IUserContext` is the single seam through which "who is making this request, and for which organization" flows into Application and Infrastructure code:
@@ -49,7 +61,7 @@ Uniqueness that would naturally be global in a single-tenant system (a user's em
 
 ## Tenant onboarding overview
 
-New-organization signup runs as a single transaction: create `Organizations` → create the default `Branches` row → create `OrganizationSettings` → clone the system role templates into tenant-local `Roles` rows → create the owner's `Persons`/`Users` rows → assign the tenant's own `Owner` role → issue an email-confirmation token. Full sequence: [docs/database/DATABASE_FINAL_BLUEPRINT.md](database/DATABASE_FINAL_BLUEPRINT.md) §5 and [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md) Phase 2.
+**Implemented.** New-organization signup runs as a single transaction (`tenant.usp_Organization_Register`, migration 011): create `Organizations` → create the main `Branches` row → create `OrganizationSettings` → create the owner's `Persons`/`Users` rows → clone the system role templates into tenant-local `Roles` rows → clone `RolePermissions` → assign the tenant's own `Owner` role → issue an email-confirmation token → write audit rows. Full workflow, request/response contract, and error cases: [docs/TENANT_ONBOARDING.md](TENANT_ONBOARDING.md). Schema rationale: [docs/database/DATABASE_FINAL_BLUEPRINT.md](database/DATABASE_FINAL_BLUEPRINT.md) §5.
 
 ## Background-job tenant handling
 

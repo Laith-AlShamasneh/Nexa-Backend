@@ -19,20 +19,24 @@
 - Validation wiring confirmed against real endpoints (FluentValidation registration exists; nothing calls it yet).
 - Audit-logging foundation: nothing writes to `audit.AuditLogs` yet — build the write path.
 
-## Phase 2 — Tenant Onboarding
+## Phase 2 — Tenant Onboarding ✅ (active/completed — this pass)
 
-- Organization creation (transaction: Organization → Branch → OrganizationSettings → role-template cloning → owner Person/User → Owner role assignment → email-confirmation token) — see [MULTI_TENANCY.md](MULTI_TENANCY.md) and [database blueprint §5](database/DATABASE_FINAL_BLUEPRINT.md).
-- Main branch creation.
-- Organization settings (table exists — `tenant.OrganizationSettings`; no service/endpoint yet).
-- Owner person + owner user creation.
-- Default tenant roles (cloning system templates — schema and a one-time backfill exist from migration 009; the *ongoing* per-signup cloning step needs to move into application code).
-- Owner role assignment.
-- Email confirmation token issuance.
-- Audit entry for organization creation.
+- ✅ Organization creation — one atomic transaction (`tenant.usp_Organization_Register`, migration 011) via `POST /api/organizations/register`. See [docs/TENANT_ONBOARDING.md](TENANT_ONBOARDING.md).
+- ✅ Main branch creation.
+- ✅ Organization settings (created and populated from the request's time zone/language/currency).
+- ✅ Owner person + owner user creation.
+- ✅ Tenant roles cloned from the four global system templates (set-based `INSERT ... SELECT`, not a per-signup C# loop).
+- ✅ Role permissions cloned alongside each tenant role.
+- ✅ Owner role assignment (to the tenant-local clone, never the global template).
+- ✅ Email confirmation token issuance (hash only persisted; raw token handed to the existing email pipeline).
+- ✅ Audit entries (six rows per registration: Organization/Branch/User created, Roles initialized, UserRoles assigned, EmailConfirmationTokens created).
+- ✅ Public-endpoint rate limiting (5 req/min/IP).
+- ✅ Unit tests (Application layer — password hashing, token hash-only persistence, conflict/missing-template mapping, validator rules).
+- ⏳ **Not done in this pass**: Confirm Email endpoint (see Phase 3), integration tests against a real SQL Server test fixture, stronger anti-abuse controls (CAPTCHA, device fingerprinting).
 
 ## Phase 3 — Identity and Authentication
 
-- Email confirmation (service logic exists in `AuthService`; stored procedures referenced by `AuthRepository` do not exist yet — they need to be written against the `identity` schema).
+- Email confirmation (service logic exists in `AuthService`; tokens are now created by Tenant Onboarding — Phase 2 — but the endpoint to *consume* one and mark `Users.IsEmailConfirmed = 1` is not yet implemented; stored procedures referenced by `AuthRepository` do not exist yet — they need to be written against the `identity` schema). **Recommended next module.**
 - Login (same caveat).
 - Refresh-token rotation (schema supports reuse detection via `TokenFamilyId`; confirm the detection logic is actually implemented, not just the columns).
 - Logout.

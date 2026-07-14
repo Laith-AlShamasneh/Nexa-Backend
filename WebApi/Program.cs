@@ -1,6 +1,10 @@
+using System.Threading.RateLimiting;
 using Application.Common.Extensions;
 using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.RateLimiting;
+using WebApi.Common;
+using WebApi.Endpoints.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,9 +16,29 @@ builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
+// Public, pre-authentication endpoints get a conservative per-IP limit — there is no
+// JWT/tenant context yet to key on. See docs/TENANT_ONBOARDING.md "Rate Limiting and
+// Abuse Protection": this is a practical baseline, not the final anti-abuse posture
+// (no CAPTCHA, no device fingerprinting yet — documented as a future enhancement).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy(RateLimiterPolicies.PublicRegistration, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {
@@ -22,6 +46,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapHealthChecks("/health");
+app.MapOrganizationEndpoints();
 
 app.Run();
 

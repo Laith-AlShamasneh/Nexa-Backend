@@ -4,4 +4,5 @@
   <Project Path="Infrastructure/Infrastructure.csproj" />
   <Project Path="Shared/Shared.csproj" />
   <Project Path="WebApi/WebApi.csproj" />
+  <Project Path="Tests/Application.UnitTests/Application.UnitTests.csproj" />
 </Solution>

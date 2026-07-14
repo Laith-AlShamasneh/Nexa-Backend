@@ -6,6 +6,7 @@ using Infrastructure.Database;
 using Infrastructure.Jobs;
 using Infrastructure.Jobs.Handlers;
 using Infrastructure.Jobs.Options;
+using Infrastructure.Services;
 using Infrastructure.Services.Authentication;
 using Infrastructure.Services.Authentication.Options;
 using Infrastructure.Services.Caching;
@@ -16,6 +17,7 @@ using Infrastructure.Services.Notifications;
 using Infrastructure.Services.Onboarding;
 using Infrastructure.Services.Storage;
 using Infrastructure.Services.Storage.Options;
+using Infrastructure.Services.Tenancy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -64,6 +66,10 @@ public static class ServiceCollectionExtensions
 
         // ── Onboarding ────────────────────────────────────────────────────────
         services.AddScoped<IOnboardingRepository, OnboardingRepository>();
+
+        // ── Tenancy (tenant onboarding / organization registration) ──────────
+        services.AddScoped<IOrganizationRegistrationRepository, OrganizationRegistrationRepository>();
+        services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
 
         // ── Background jobs ──────────────────────────────────────────────────
         services.AddScoped<IBackgroundJobRepository, BackgroundJobRepository>();

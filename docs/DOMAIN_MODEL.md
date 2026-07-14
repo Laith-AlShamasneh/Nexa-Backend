@@ -131,3 +131,11 @@ Column-length guards live next to the area they describe, matching actual `NVARC
 ## Equality
 
 `Entity<TId>` implements identity-based equality (same `Id` ⇒ same entity, regardless of other property values) via `IEquatable<Entity<TId>>` plus `==`/`!=` operator overloads. `UserRole`/`RolePermission` use `record`'s built-in structural equality instead, which is correct for them since their "identity" *is* their full (small) set of key fields.
+
+## Confirmed by Tenant Onboarding (first real consumer of this model)
+
+[docs/TENANT_ONBOARDING.md](TENANT_ONBOARDING.md) is the first Application-layer workflow to actually construct these entities, and it confirms the design holds up in practice rather than just on paper:
+
+- `Organization.Create`, `Branch.Create`, `OrganizationSettings.CreateDefault` + `UpdateLocale`, `Person.Create`, and `User.Create` are all called from `TenantOnboardingService` — each one's client-side `Guid.CreateVersion7()` Id becomes the actual `@OrganizationId`/`@BranchId`/`@PersonId`/`@UserId` parameter passed into `tenant.usp_Organization_Register`, exactly as this document's "Dapper construction strategy" predicted.
+- `Role`'s tenant-local-clone-from-global-template model (§ above) is implemented entirely in SQL (set-based `INSERT ... SELECT`), not through the `Role.CreateTenantRole` factory — cloning dozens of permission rows one Domain object at a time would mean a C# loop the stored procedure can do in one set-based statement instead. `Role.CreateTenantRole` remains available for a future workflow that creates a single custom tenant role interactively (not a bulk clone).
+- `UserRole`/`RolePermission` records are, similarly, never constructed in C# for this workflow — the bulk assignment/grant is SQL-side. The record types stay as the read-side shape for whenever Application needs to query "which roles does this user have" later.

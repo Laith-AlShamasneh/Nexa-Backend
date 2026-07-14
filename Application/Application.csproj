@@ -24,4 +24,10 @@
     <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets Application.UnitTests construct internal service classes (e.g.
+         TenantOnboardingService) directly, without making them public just for tests. -->
+    <InternalsVisibleTo Include="Application.UnitTests" />
+  </ItemGroup>
+
 </Project>
