@@ -68,7 +68,7 @@ internal sealed class CreateNotificationHandler(
         category switch
         {
             NotificationCategory.Security  => prefs.SecurityEnabled,
-            NotificationCategory.Financial => prefs.FinancialEnabled,
+            NotificationCategory.Billing => prefs.BillingEnabled,
             NotificationCategory.System    => prefs.SystemEnabled,
             NotificationCategory.Reports   => prefs.ReportsEnabled,
             NotificationCategory.Profile   => prefs.ProfileEnabled,

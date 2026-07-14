@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Application.Interfaces.Services;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Hosting;
 using Shared.Enums.System;
 
 namespace Infrastructure.Services.Email;
@@ -24,8 +24,8 @@ namespace Infrastructure.Services.Email;
 /// Reserved layout placeholders: {{Content}}, {{Subject}}, {{PreviewText}}, {{CurrentYear}}
 /// </summary>
 internal sealed class EmailTemplateService(
-    IWebHostEnvironment environment,
-    IMemoryCache        cache) : IEmailTemplateService
+    IHostEnvironment environment,
+    IMemoryCache     cache) : IEmailTemplateService
 {
     private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 

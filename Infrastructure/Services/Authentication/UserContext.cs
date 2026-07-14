@@ -18,12 +18,12 @@ internal sealed class UserContext(IHttpContextAccessor httpContextAccessor) : IU
         }
     }
 
-    public long? WorkspaceId
+    public Guid? OrganizationId
     {
         get
         {
-            var header = Http?.Request.Headers["X-Workspace-Id"].FirstOrDefault();
-            return long.TryParse(header, out var id) && id > 0 ? id : null;
+            var claim = Http?.User.FindFirst("org_id")?.Value;
+            return Guid.TryParse(claim, out var id) ? id : null;
         }
     }
 

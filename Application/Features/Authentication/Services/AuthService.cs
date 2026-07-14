@@ -55,7 +55,7 @@ internal sealed class AuthService(
             var ext = Path.GetExtension(request.ProfileImage.FileName);
             profilePictureFileName = $"{Guid.NewGuid()}{ext}";
             var fileKey = storageUtility.BuildFileKey(FolderPaths.ProfilePictures, profilePictureFileName);
-            await using var stream = request.ProfileImage.OpenReadStream();
+            await using var stream = request.ProfileImage.Content;
             await fileService.UploadAsync(stream, fileKey, request.ProfileImage.ContentType, ct);
         }
 

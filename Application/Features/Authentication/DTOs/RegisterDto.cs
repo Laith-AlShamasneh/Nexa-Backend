@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+using Application.Common.Upload;
 using Shared.Enums.Identity;
 
 namespace Application.Features.Authentication.DTOs;
@@ -15,7 +15,7 @@ public sealed class RegisterRequest
     public GenderTypes? GenderId      { get; set; }
     public string       Email         { get; set; } = string.Empty;
     public string       Password      { get; set; } = string.Empty;
-    public IFormFile?   ProfileImage  { get; set; }
+    public FileUpload?  ProfileImage  { get; set; }
 }
 
 public sealed record RegisterResponse(

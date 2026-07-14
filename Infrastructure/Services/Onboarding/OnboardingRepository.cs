@@ -1,5 +1,5 @@
 using Application.Features.Onboarding.DbModels;
-using Application.Interfaces.Database;
+using Infrastructure.Database;
 using Application.Interfaces.Repositories;
 using Dapper;
 using System.Data;
@@ -12,14 +12,14 @@ internal sealed class OnboardingRepository(IDbExecutor db) : IOnboardingReposito
     {
         var p = new DynamicParameters();
         p.Add("@UserId", userId, DbType.Int64);
-        return db.ExecuteAsync("MyMoney.usp_Onboarding_Initialize", p, ct);
+        return db.ExecuteAsync("dbo.usp_Onboarding_Initialize", p, ct);
     }
 
     public Task<IReadOnlyList<OnboardingStateDbResult>> GetStateAsync(long userId, CancellationToken ct = default)
     {
         var p = new DynamicParameters();
         p.Add("@UserId", userId, DbType.Int64);
-        return db.QueryListAsync<OnboardingStateDbResult>("MyMoney.usp_Onboarding_GetState", p, ct);
+        return db.QueryListAsync<OnboardingStateDbResult>("dbo.usp_Onboarding_GetState", p, ct);
     }
 
     public async Task<AdvanceStepDbResult> AdvanceStepAsync(AdvanceStepDbInput input, CancellationToken ct = default)
@@ -30,7 +30,7 @@ internal sealed class OnboardingRepository(IDbExecutor db) : IOnboardingReposito
         p.Add("@StepStatus", input.StepStatus, DbType.Byte);
 
         return await db.QuerySingleAsync<AdvanceStepDbResult>(
-            "MyMoney.usp_Onboarding_AdvanceStep", p, ct)
+            "dbo.usp_Onboarding_AdvanceStep", p, ct)
             ?? new AdvanceStepDbResult { ResultCode = 1 };
     }
 
@@ -40,7 +40,7 @@ internal sealed class OnboardingRepository(IDbExecutor db) : IOnboardingReposito
         p.Add("@UserId", userId, DbType.Int64);
 
         return await db.QuerySingleAsync<SkipOnboardingDbResult>(
-            "MyMoney.usp_Onboarding_Skip", p, ct)
+            "dbo.usp_Onboarding_Skip", p, ct)
             ?? new SkipOnboardingDbResult { ResultCode = 1 };
     }
 }

@@ -1,5 +1,5 @@
 using Application.Features.Notifications.DbModels;
-using Application.Interfaces.Database;
+using Infrastructure.Database;
 using Application.Interfaces.Repositories;
 using Dapper;
 using System.Data;
@@ -24,7 +24,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         p.Add("@ExpiresAtUtc",model.ExpiresAtUtc,DbType.DateTime2);
         p.Add("@NewId", dbType: DbType.Int64, direction: ParameterDirection.Output);
 
-        await db.ExecuteAsync("MyMoney.usp_Notification_Create", p, ct);
+        await db.ExecuteAsync("notification.usp_Notification_Create", p, ct);
         return p.Get<long>("@NewId");
     }
 
@@ -38,7 +38,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         p.Add("@PageSize",   model.PageSize,   DbType.Int32);
 
         return db.QueryMultipleAsync(
-            "MyMoney.usp_Notification_GetList",
+            "notification.usp_Notification_GetList",
             async multi =>
             {
                 var items  = (await multi.ReadAsync<NotificationRowDbResult>()).AsList();
@@ -59,7 +59,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
     {
         var p = new DynamicParameters();
         p.Add("@UserId", userId, DbType.Int64);
-        return await db.ExecuteScalarAsync<int>("MyMoney.usp_Notification_GetUnreadCount", p, ct);
+        return await db.ExecuteScalarAsync<int>("notification.usp_Notification_GetUnreadCount", p, ct);
     }
 
     public async Task<int> MarkReadAsync(NotificationActionDbModel model, CancellationToken ct = default)
@@ -68,7 +68,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         p.Add("@UserId",         model.UserId,         DbType.Int64);
         p.Add("@NotificationId", model.NotificationId, DbType.Int64);
         p.Add("@RowsAffected",   dbType: DbType.Int32, direction: ParameterDirection.Output);
-        await db.ExecuteAsync("MyMoney.usp_Notification_MarkRead", p, ct);
+        await db.ExecuteAsync("notification.usp_Notification_MarkRead", p, ct);
         return p.Get<int>("@RowsAffected");
     }
 
@@ -77,7 +77,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         var p = new DynamicParameters();
         p.Add("@UserId",       userId,  DbType.Int64);
         p.Add("@RowsAffected", dbType: DbType.Int32, direction: ParameterDirection.Output);
-        await db.ExecuteAsync("MyMoney.usp_Notification_MarkAllRead", p, ct);
+        await db.ExecuteAsync("notification.usp_Notification_MarkAllRead", p, ct);
         return p.Get<int>("@RowsAffected");
     }
 
@@ -87,7 +87,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         p.Add("@UserId",         model.UserId,         DbType.Int64);
         p.Add("@NotificationId", model.NotificationId, DbType.Int64);
         p.Add("@RowsAffected",   dbType: DbType.Int32, direction: ParameterDirection.Output);
-        await db.ExecuteAsync("MyMoney.usp_Notification_Archive", p, ct);
+        await db.ExecuteAsync("notification.usp_Notification_Archive", p, ct);
         return p.Get<int>("@RowsAffected");
     }
 
@@ -97,7 +97,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         p.Add("@UserId",         model.UserId,         DbType.Int64);
         p.Add("@NotificationId", model.NotificationId, DbType.Int64);
         p.Add("@RowsAffected",   dbType: DbType.Int32, direction: ParameterDirection.Output);
-        await db.ExecuteAsync("MyMoney.usp_Notification_Dismiss", p, ct);
+        await db.ExecuteAsync("notification.usp_Notification_Dismiss", p, ct);
         return p.Get<int>("@RowsAffected");
     }
 
@@ -107,7 +107,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         p.Add("@UserId",         model.UserId,         DbType.Int64);
         p.Add("@NotificationId", model.NotificationId, DbType.Int64);
         p.Add("@RowsAffected",   dbType: DbType.Int32, direction: ParameterDirection.Output);
-        await db.ExecuteAsync("MyMoney.usp_Notification_Delete", p, ct);
+        await db.ExecuteAsync("notification.usp_Notification_Delete", p, ct);
         return p.Get<int>("@RowsAffected");
     }
 
@@ -116,7 +116,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         var p = new DynamicParameters();
         p.Add("@RetentionDays", retentionDays, DbType.Int32);
         p.Add("@RowsDeleted",   dbType: DbType.Int32, direction: ParameterDirection.Output);
-        await db.ExecuteAsync("MyMoney.usp_Notification_CleanupExpired", p, ct);
+        await db.ExecuteAsync("notification.usp_Notification_CleanupExpired", p, ct);
         return p.Get<int>("@RowsDeleted");
     }
 
@@ -127,7 +127,7 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         p.Add("@Code", code, DbType.String);
 
         return db.QueryMultipleAsync(
-            "MyMoney.usp_NotificationTemplate_GetByCode",
+            "notification.usp_NotificationTemplate_GetByCode",
             async multi =>
             {
                 var template     = await multi.ReadFirstOrDefaultAsync<NotificationTemplateDbResult>();
@@ -142,11 +142,11 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         var p = new DynamicParameters();
         p.Add("@UserId", userId, DbType.Int64);
         return await db.QuerySingleAsync<NotificationPreferencesDbResult>(
-            "MyMoney.usp_NotificationPreferences_GetOrInit", p, ct)
+            "notification.usp_NotificationPreferences_GetOrInit", p, ct)
             ?? new NotificationPreferencesDbResult
             {
                 SecurityEnabled  = true,
-                FinancialEnabled = true,
+                BillingEnabled = true,
                 SystemEnabled    = true,
                 ReportsEnabled   = true,
                 ProfileEnabled   = true
@@ -158,11 +158,11 @@ internal sealed class NotificationRepository(IDbExecutor db) : INotificationRepo
         var p = new DynamicParameters();
         p.Add("@UserId",           model.UserId,           DbType.Int64);
         p.Add("@SecurityEnabled",  model.SecurityEnabled,  DbType.Boolean);
-        p.Add("@FinancialEnabled", model.FinancialEnabled, DbType.Boolean);
+        p.Add("@BillingEnabled", model.BillingEnabled, DbType.Boolean);
         p.Add("@SystemEnabled",    model.SystemEnabled,    DbType.Boolean);
         p.Add("@ReportsEnabled",   model.ReportsEnabled,   DbType.Boolean);
         p.Add("@ProfileEnabled",   model.ProfileEnabled,   DbType.Boolean);
-        return db.ExecuteAsync("MyMoney.usp_NotificationPreferences_Upsert", p, ct);
+        return db.ExecuteAsync("notification.usp_NotificationPreferences_Upsert", p, ct);
     }
 
     private sealed record NotificationListCountsRow(int TotalCount, int UnreadCount);

@@ -7,13 +7,13 @@ public interface IUserContext
     long UserId { get; }
 
     /// <summary>
-    /// The workspace the request is acting in, from the X-Workspace-Id header.
-    /// NULL means "no explicit workspace" — every scoped stored procedure resolves
-    /// NULL to the caller's personal workspace, preserving pre-workspace behavior.
-    /// Authorization for a non-personal workspace is enforced inside the SPs via
-    /// fn_CanAccessWorkspace, so a forged/unauthorized id fails closed.
+    /// The tenant (organization) the request is acting in, resolved from the
+    /// authenticated JWT's "org_id" claim — never from a request header or body.
+    /// A user's token is only ever issued for one organization (see
+    /// docs/MULTI_TENANCY.md), so this is non-null for any authenticated request
+    /// and every tenant-scoped stored procedure must filter by it.
     /// </summary>
-    long? WorkspaceId { get; }
+    Guid? OrganizationId { get; }
 
     string Email { get; }
     string DisplayName { get; }

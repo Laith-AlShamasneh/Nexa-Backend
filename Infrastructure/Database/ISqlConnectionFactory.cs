@@ -1,6 +1,6 @@
 using System.Data;
 
-namespace Application.Interfaces.Database;
+namespace Infrastructure.Database;
 
 public interface ISqlConnectionFactory
 {

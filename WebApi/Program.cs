@@ -1,32 +1,52 @@
+using Application.Common.Extensions;
+using Infrastructure.Extensions;
+using Microsoft.AspNetCore.Diagnostics;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseExceptionHandler();
 
-var summaries = new[]
+if (app.Environment.IsDevelopment())
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    app.MapOpenApi();
+}
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-});
+app.MapHealthChecks("/health");
 
 app.Run();
 
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+/// <summary>
+/// Last-resort exception boundary: maps any exception that escapes Application-layer
+/// error handling to a ProblemDetails response instead of leaking a stack trace.
+/// Domain-specific exceptions (NotFoundException, ForbiddenException, ValidationAppException)
+/// get their proper status codes here once the Identity phase's endpoints exist to trigger them.
+/// </summary>
+internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken ct)
+    {
+        logger.LogError(exception, "Unhandled exception processing {Method} {Path}",
+            httpContext.Request.Method, httpContext.Request.Path);
+
+        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        await httpContext.Response.WriteAsJsonAsync(new
+        {
+            title  = "An unexpected error occurred.",
+            status = StatusCodes.Status500InternalServerError,
+            traceId = httpContext.TraceIdentifier
+        }, ct);
+
+        return true;
+    }
 }

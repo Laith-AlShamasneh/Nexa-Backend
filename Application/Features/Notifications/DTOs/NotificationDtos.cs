@@ -18,7 +18,7 @@ public record DeleteNotificationRequest(long NotificationId);
 
 public record UpdatePreferencesRequest(
     bool SecurityEnabled,
-    bool FinancialEnabled,
+    bool BillingEnabled,
     bool SystemEnabled,
     bool ReportsEnabled,
     bool ProfileEnabled);
@@ -52,7 +52,7 @@ public record UnreadCountResponse(int Count);
 
 public record NotificationPreferencesResponse(
     bool SecurityEnabled,
-    bool FinancialEnabled,
+    bool BillingEnabled,
     bool SystemEnabled,
     bool ReportsEnabled,
     bool ProfileEnabled);

@@ -1,0 +1,36 @@
+# Nexa — Security Baseline
+
+This document states what security behavior exists **today**, in code, versus what is **planned** for the Identity phase (Phase 3 of [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md)) or later. Do not treat anything in the "Planned" column as already protecting the system.
+
+| Concern | Implemented now | Planned |
+|---|---|---|
+| Password hashing | `PasswordHasher` (Infrastructure) wraps `BCrypt.Net` `EnhancedHashPassword`/`EnhancedVerify` at work factor 12. Salt is embedded in the hash — no separate salt column/field anywhere. | — |
+| Token hashing | `TokenHasher` (Infrastructure) generates and hashes raw tokens (refresh/confirmation/reset) via SHA-256; only the hash is ever persisted (`identity.RefreshTokens.TokenHash`, etc. — see [database blueprint](database/DATABASE_FINAL_BLUEPRINT.md)). | — |
+| Refresh-token rotation | `AuthService.RefreshTokenAsync` issues a new token and revokes the old one on each refresh; DB schema carries `TokenFamilyId`/`ReplacedByTokenId` for reuse detection (migration 009). | Wiring the *detection* logic itself (revoke the whole family on reuse of an already-revoked token) into `AuthService`/`AuthRepository` — schema is ready, service logic is not yet confirmed wired end-to-end. Verify before relying on it. |
+| Token revocation | `RefreshTokens.RevokedAt`/`RevokedBy`/`RevokedByIp` columns exist; `identity.UserSessions` (migration 009) models per-device sessions for "log out everywhere." | Actual session-revocation-cascades-to-tokens logic, and a "list my active sessions" endpoint. |
+| Email confirmation | `AuthService`/`AuthRepository` have a confirm-email flow (`ConfirmEmailAsync`, `SaveConfirmationToken`, etc.) using hashed tokens with expiry. | Verifying the flow end-to-end against real stored procedures (none exist yet — see Phase 3 of the roadmap). |
+| Password reset | Equivalent hashed-token flow (`SavePasswordResetToken`, `ValidatePasswordResetToken`, `ResetPassword`) exists in `AuthService`/`AuthRepository`. | Same caveat — stored procedures not yet written. |
+| Sign-in logging | `identity.SignInLogs` table exists with `EventType`, `IpAddress`, `UserAgent`, `CorrelationId` (migration 009); no FK (append-only, informational). | Application code actually writing to it on every login attempt — not yet confirmed wired in `AuthService`. |
+| Lockout policy | `Users.FailedLoginAttempts`/`LockoutEndDate` columns exist with a `CHECK` constraint (`FailedLoginAttempts >= 0`); `AuthenticationOptions.MaxFailedLoginAttempts`/`LockoutDurationMinutes` are bound from config. | Confirming the increment/reset/lockout-check logic in `AuthService` matches these option values exactly (review before shipping). |
+| Role-based authorization | DB model exists: `identity.Roles` (tenant-local copies of system templates), `Permissions`, `RolePermissions`, `UserRoles`, all tenant-safe-FK-enforced (migration 009). | JWT claim population from the effective permission set, and the WebApi-side authorization policy wiring (no endpoints exist yet to attach policies to). |
+| Fine-grained permissions | Seed catalog exists (`identity.Permissions`, migration 008) — e.g. `Customer.View`, `Payment.Create`. | Endpoint-level `[Authorize(Policy = "...")]`-style enforcement once endpoints exist. |
+| Session management | `identity.UserSessions` table exists (migration 009). | Application/Infrastructure code to create/update/revoke session rows; no service currently writes to this table. |
+| Audit logging | `audit.AuditLogs` table exists with JSON-validity `CHECK` constraints on before/after values (migration 009). | Nothing currently writes to it — no audit-writing code exists yet in Application/Infrastructure. This is explicit Phase 1 roadmap work, not done. |
+| Secret management | `appsettings.json` ships only empty-string placeholders for `Jwt:SecretKey`, `ConnectionStrings:SqlConnection`, and `Smtp:*` credentials — nothing real is committed. | Real secrets belong in user-secrets locally and a proper secret store (Key Vault or equivalent) in deployed environments — not yet configured, since there's no deployment target yet. |
+| Input validation | FluentValidation validators exist for every Authentication request DTO (`RegisterValidator`, `LoginValidator`, etc.), auto-registered via `AddValidatorsFromAssemblyContaining`. | Validators for every future feature's request DTOs, per [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md)'s checklist. |
+| Rate limiting | Not implemented. | ASP.NET Core's built-in rate limiting middleware, at minimum on the login/register/password-reset endpoints, once those endpoints exist. |
+| CORS | Not configured (no `AddCors`/`UseCors` in `Program.cs` yet). | Configure explicitly once a frontend origin is known — never `AllowAnyOrigin()` combined with credentials. |
+| HTTPS | Kestrel default HTTPS redirection is not yet explicitly configured in `Program.cs`. | Add `UseHttpsRedirection()` and HSTS before any non-local deployment. |
+| Secure headers | Not implemented. | Standard security headers (X-Content-Type-Options, X-Frame-Options/frame-ancestors, Referrer-Policy) before any non-local deployment. |
+| Sensitive-data logging restrictions | No logging call anywhere currently logs a raw password, raw token, or full JWT (verified during cleanup — see [ARCHITECTURE_RULES.md](ARCHITECTURE_RULES.md) rule 16). | Keep enforcing this in review as new logging is added; consider a Serilog destructuring policy that redacts known-sensitive property names as a backstop. |
+| SQL injection prevention | Every DB call goes through Dapper's parameterized `DynamicParameters` against stored procedures — no string-concatenated SQL exists anywhere in the codebase (verified during cleanup). | Keep enforcing via [ARCHITECTURE_RULES.md](ARCHITECTURE_RULES.md) rule 7/13 in review — no exceptions for "just this one dynamic filter." |
+| Stored procedure parameterization | Same as above — parameters are always bound via `DynamicParameters.Add(name, value, DbType)`, never interpolated into the procedure name or a query string. | — |
+| Tenant isolation | See [MULTI_TENANCY.md](MULTI_TENANCY.md) — application-layer filtering convention plus composite tenant-safe foreign keys (migration 009) are in place at the schema level. | SQL Server Row-Level Security as the third defense layer (blueprint §7); JWT `org_id` claim population/validation end-to-end (no login endpoint exists yet to issue it). |
+
+## What "implemented now" means precisely
+
+It means the described mechanism exists in the current codebase (a class, a table, a constraint) and was verified during this cleanup pass. It does **not** mean there is a working, end-to-end, tested feature reachable from an HTTP endpoint — there are currently **no real API endpoints** in `WebApi` (Phase 0 of the roadmap is solution cleanup, not feature delivery). Treat every "Implemented now" row as "the building block exists and compiles," and re-verify it against real behavior before relying on it in a security review of an actual running feature.
+
+## What "planned" means precisely
+
+It means the design exists (in this document, the database blueprint, or the roadmap) but no code currently implements it. Do not describe a "planned" item as done in any customer-facing or compliance-facing material.

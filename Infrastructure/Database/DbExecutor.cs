@@ -1,4 +1,3 @@
-using Application.Interfaces.Database;
 using Dapper;
 using System.Data;
 

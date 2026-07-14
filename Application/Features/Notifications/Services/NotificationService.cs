@@ -133,7 +133,7 @@ internal sealed class NotificationService(
             {
                 UserId           = userContext.UserId,
                 SecurityEnabled  = request.SecurityEnabled,
-                FinancialEnabled = request.FinancialEnabled,
+                BillingEnabled = request.BillingEnabled,
                 SystemEnabled    = request.SystemEnabled,
                 ReportsEnabled   = request.ReportsEnabled,
                 ProfileEnabled   = request.ProfileEnabled
@@ -162,12 +162,12 @@ internal sealed class NotificationService(
             r.ReadAtUtc);
 
     private static NotificationPreferencesResponse MapPreferences(NotificationPreferencesDbResult p) =>
-        new(p.SecurityEnabled, p.FinancialEnabled, p.SystemEnabled, p.ReportsEnabled, p.ProfileEnabled);
+        new(p.SecurityEnabled, p.BillingEnabled, p.SystemEnabled, p.ReportsEnabled, p.ProfileEnabled);
 
     private static string CategoryName(byte v) => (NotificationCategory)v switch
     {
         NotificationCategory.Security  => "Security",
-        NotificationCategory.Financial => "Financial",
+        NotificationCategory.Billing => "Billing",
         NotificationCategory.System    => "System",
         NotificationCategory.Reports   => "Reports",
         NotificationCategory.Profile   => "Profile",

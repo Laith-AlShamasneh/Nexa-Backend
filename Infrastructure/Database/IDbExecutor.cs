@@ -1,6 +1,6 @@
 using Dapper;
 
-namespace Application.Interfaces.Database;
+namespace Infrastructure.Database;
 
 public interface IDbExecutor
 {

@@ -83,7 +83,7 @@ public class NotificationTemplateTranslationDbResult
 public class NotificationPreferencesDbResult
 {
     public bool SecurityEnabled  { get; set; }
-    public bool FinancialEnabled { get; set; }
+    public bool BillingEnabled { get; set; }
     public bool SystemEnabled    { get; set; }
     public bool ReportsEnabled   { get; set; }
     public bool ProfileEnabled   { get; set; }
@@ -93,7 +93,7 @@ public class UpsertNotificationPreferencesDbModel
 {
     public long UserId           { get; set; }
     public bool SecurityEnabled  { get; set; }
-    public bool FinancialEnabled { get; set; }
+    public bool BillingEnabled { get; set; }
     public bool SystemEnabled    { get; set; }
     public bool ReportsEnabled   { get; set; }
     public bool ProfileEnabled   { get; set; }

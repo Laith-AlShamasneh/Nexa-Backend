@@ -10,8 +10,9 @@ public sealed class AuthenticationOptions
     public string ResetPasswordBaseUrl         { get; init; } = string.Empty;
     public string AcceptInvitationBaseUrl      { get; init; } = string.Empty;
 
-    // H8: when true, access tokens carry a per-user security stamp that is validated
-    // on each request, and the stamp is bumped on password change (revoking tokens).
-    // Keep false until the audit-h8-security-stamp.sql migration is applied.
+    // When true, access tokens carry a per-user security stamp that is validated on
+    // each request, and the stamp is bumped on password change (revoking tokens).
+    // Requires identity.Users.SecurityStamp to be populated — safe to leave false
+    // until that column is written to by the login/register stored procedures.
     public bool   ValidateAccessTokenStamp     { get; init; }
 }

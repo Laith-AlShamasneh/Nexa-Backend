@@ -13,8 +13,15 @@
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.9" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Brings IHttpContextAccessor (UserContext.cs), IMemoryCache, IHostEnvironment,
+         IConfiguration, and IOptions binding — the standard way for a non-Web-SDK
+         class library to reference the ASP.NET Core shared framework without pulling
+         loose NuGet packages of mismatched versions. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,5 +1,5 @@
 using Application.Features.Authentication.DbModels;
-using Application.Interfaces.Database;
+using Infrastructure.Database;
 using Application.Interfaces.Repositories;
 using Dapper;
 using System.Data;
@@ -12,7 +12,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
     {
         var p = new DynamicParameters();
         p.Add("@Email", email, DbType.String);
-        var result = await db.ExecuteScalarAsync<bool?>("MyMoney.usp_Authentication_CheckEmailExists", p, ct);
+        var result = await db.ExecuteScalarAsync<bool?>("identity.usp_Authentication_CheckEmailExists", p, ct);
         return result ?? false;
     }
 
@@ -20,14 +20,14 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
     {
         var p = new DynamicParameters();
         p.Add("@UserId", userId, DbType.Int64);
-        return db.QuerySingleAsync<Guid?>("MyMoney.usp_Authentication_GetSecurityStamp", p, ct);
+        return db.QuerySingleAsync<Guid?>("identity.usp_Authentication_GetSecurityStamp", p, ct);
     }
 
     public Task BumpSecurityStampAsync(long userId, CancellationToken ct = default)
     {
         var p = new DynamicParameters();
         p.Add("@UserId", userId, DbType.Int64);
-        return db.ExecuteAsync("MyMoney.usp_Authentication_BumpSecurityStamp", p, ct);
+        return db.ExecuteAsync("identity.usp_Authentication_BumpSecurityStamp", p, ct);
     }
 
     public async Task<RegisterDbResult?> RegisterAsync(RegisterDbInput input, CancellationToken ct = default)
@@ -46,7 +46,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@PasswordHash",   input.PasswordHash,                                                   DbType.String);
         p.Add("@DefaultRoleId",  input.DefaultRoleId,                                                  DbType.Int32);
 
-        return await db.QuerySingleAsync<RegisterDbResult>("MyMoney.usp_Authentication_Register", p, ct);
+        return await db.QuerySingleAsync<RegisterDbResult>("identity.usp_Authentication_Register", p, ct);
     }
 
     public async Task SaveRefreshTokenAsync(SaveRefreshTokenDbInput input, CancellationToken ct = default)
@@ -57,7 +57,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@ExpiresOnUtc", input.ExpiresOnUtc, DbType.DateTime2);
         p.Add("@CreatedByIp",  input.CreatedByIp,  DbType.String);
 
-        await db.ExecuteAsync("MyMoney.usp_Authentication_SaveRefreshToken", p, ct);
+        await db.ExecuteAsync("identity.usp_Authentication_SaveRefreshToken", p, ct);
     }
 
     public async Task<LoginDbResult?> GetByEmailForLoginAsync(string email, CancellationToken ct = default)
@@ -65,7 +65,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         var p = new DynamicParameters();
         p.Add("@Email", email, DbType.String);
 
-        return await db.QuerySingleAsync<LoginDbResult>("MyMoney.usp_Authentication_Login", p, ct);
+        return await db.QuerySingleAsync<LoginDbResult>("identity.usp_Authentication_Login", p, ct);
     }
 
     public async Task UpdateLoginAsync(LoginUpdateDbModel model, CancellationToken ct = default)
@@ -76,7 +76,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@MaxFailedAttempts",      model.MaxFailedAttempts,      DbType.Int32);
         p.Add("@LockoutDurationMinutes", model.LockoutDurationMinutes, DbType.Int32);
 
-        await db.ExecuteAsync("MyMoney.usp_Authentication_UpdateLogin", p, ct);
+        await db.ExecuteAsync("identity.usp_Authentication_UpdateLogin", p, ct);
     }
 
     public async Task SaveConfirmationTokenAsync(SaveConfirmationTokenDbInput input, CancellationToken ct = default)
@@ -87,7 +87,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@ExpiresAtUtc", input.ExpiresAtUtc, DbType.DateTime2);
         p.Add("@CreatedByIp",  input.CreatedByIp,  DbType.String);
 
-        await db.ExecuteAsync("MyMoney.usp_Authentication_SaveConfirmationToken", p, ct);
+        await db.ExecuteAsync("identity.usp_Authentication_SaveConfirmationToken", p, ct);
     }
 
     public async Task<ConfirmEmailDbResult> ConfirmEmailAsync(ConfirmEmailDbInput input, CancellationToken ct = default)
@@ -97,7 +97,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@UsedByIp",  input.UsedByIp,  DbType.String);
 
         return await db.QuerySingleAsync<ConfirmEmailDbResult>(
-            "MyMoney.usp_Authentication_ConfirmEmail", p, ct)
+            "identity.usp_Authentication_ConfirmEmail", p, ct)
             ?? new ConfirmEmailDbResult { ResultCode = 1 };
     }
 
@@ -108,7 +108,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@Email", email, DbType.String);
 
         return await db.QuerySingleAsync<UserConfirmationStatusDbResult>(
-            "MyMoney.usp_Authentication_GetUserConfirmationStatus", p, ct);
+            "identity.usp_Authentication_GetUserConfirmationStatus", p, ct);
     }
 
     public async Task<ChangePasswordUserDbResult?> GetUserForChangePasswordAsync(
@@ -118,7 +118,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@UserId", userId, DbType.Int64);
 
         return await db.QuerySingleAsync<ChangePasswordUserDbResult>(
-            "MyMoney.usp_Authentication_GetUserForChangePassword", p, ct);
+            "identity.usp_Authentication_GetUserForChangePassword", p, ct);
     }
 
     public async Task<ChangePasswordDbResult> ChangePasswordAsync(
@@ -131,7 +131,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@CurrentTokenHash",  input.CurrentTokenHash,  DbType.String);
 
         return await db.QuerySingleAsync<ChangePasswordDbResult>(
-            "MyMoney.usp_Authentication_ChangePassword", p, ct)
+            "identity.usp_Authentication_ChangePassword", p, ct)
             ?? new ChangePasswordDbResult { ResultCode = 1 };
     }
 
@@ -142,7 +142,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@Email", email, DbType.String);
 
         return await db.QuerySingleAsync<ForgotPasswordDbResult>(
-            "MyMoney.usp_Authentication_GetUserForPasswordReset", p, ct);
+            "identity.usp_Authentication_GetUserForPasswordReset", p, ct);
     }
 
     public async Task SavePasswordResetTokenAsync(
@@ -154,7 +154,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@ExpiresAtUtc", input.ExpiresAtUtc, DbType.DateTime2);
         p.Add("@CreatedByIp",  input.CreatedByIp,  DbType.String);
 
-        await db.ExecuteAsync("MyMoney.usp_Authentication_SavePasswordResetToken", p, ct);
+        await db.ExecuteAsync("identity.usp_Authentication_SavePasswordResetToken", p, ct);
     }
 
     public async Task<ValidateResetTokenDbResult> ValidatePasswordResetTokenAsync(
@@ -164,7 +164,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@TokenHash", tokenHash, DbType.String);
 
         return await db.QuerySingleAsync<ValidateResetTokenDbResult>(
-            "MyMoney.usp_Authentication_ValidatePasswordResetToken", p, ct)
+            "identity.usp_Authentication_ValidatePasswordResetToken", p, ct)
             ?? new ValidateResetTokenDbResult { ResultCode = 1 };
     }
 
@@ -177,7 +177,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@UsedByIp",     input.UsedByIp,     DbType.String);
 
         return await db.QuerySingleAsync<ResetPasswordDbResult>(
-            "MyMoney.usp_Authentication_ResetPassword", p, ct)
+            "identity.usp_Authentication_ResetPassword", p, ct)
             ?? new ResetPasswordDbResult { ResultCode = 1 };
     }
 
@@ -191,7 +191,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@RevokedByIp",     input.RevokedByIp,     DbType.String);
 
         return await db.QuerySingleAsync<RefreshTokenDbResult>(
-            "MyMoney.usp_Authentication_RefreshToken", p, ct)
+            "identity.usp_Authentication_RefreshToken", p, ct)
             ?? new RefreshTokenDbResult { ResultCode = 1 };
     }
 
@@ -201,7 +201,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@TokenHash",   input.TokenHash,   DbType.String);
         p.Add("@RevokedByIp", input.RevokedByIp, DbType.String);
 
-        await db.ExecuteAsync("MyMoney.usp_Authentication_Logout", p, ct);
+        await db.ExecuteAsync("identity.usp_Authentication_Logout", p, ct);
     }
 
     // ─── Email Change ──────────────────────────────────────────────────────────
@@ -213,7 +213,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@UserId", userId, DbType.Int64);
 
         return await db.QuerySingleAsync<GetProfileForEmailChangeDbResult>(
-            "MyMoney.usp_Profile_GetProfileForEmailChange", p, ct);
+            "identity.usp_Profile_GetProfileForEmailChange", p, ct);
     }
 
     public async Task RequestEmailChangeAsync(
@@ -226,7 +226,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@ExpiresAtUtc", input.ExpiresAtUtc, DbType.DateTime2);
         p.Add("@CreatedByIp",  input.CreatedByIp,  DbType.String);
 
-        await db.ExecuteAsync("MyMoney.usp_Profile_RequestEmailChange", p, ct);
+        await db.ExecuteAsync("identity.usp_Profile_RequestEmailChange", p, ct);
     }
 
     public async Task<ConfirmEmailChangeDbResult> ConfirmEmailChangeAsync(
@@ -237,7 +237,7 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         p.Add("@UsedByIp",  input.UsedByIp,  DbType.String);
 
         return await db.QuerySingleAsync<ConfirmEmailChangeDbResult>(
-            "MyMoney.usp_Profile_ConfirmEmailChange", p, ct)
+            "identity.usp_Profile_ConfirmEmailChange", p, ct)
             ?? new ConfirmEmailChangeDbResult(1, null, null, null, null, null);
     }
 
@@ -246,6 +246,6 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         var p = new DynamicParameters();
         p.Add("@UserId", userId, DbType.Int64);
 
-        await db.ExecuteAsync("MyMoney.usp_Profile_CancelEmailChange", p, ct);
+        await db.ExecuteAsync("identity.usp_Profile_CancelEmailChange", p, ct);
     }
 }
