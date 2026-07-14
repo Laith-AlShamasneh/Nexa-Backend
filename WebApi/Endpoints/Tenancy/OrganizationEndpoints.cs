@@ -1,9 +1,7 @@
 using Application.Features.Tenancy.DTOs;
 using Application.Interfaces.Services;
-using FluentValidation;
-using Shared.Enums.System;
-using Shared.Responses;
 using WebApi.Common;
+using WebApi.Common.Filters;
 
 namespace WebApi.Endpoints.Tenancy;
 
@@ -21,25 +19,17 @@ public static class OrganizationEndpoints
 
         group.MapPost("/register", RegisterAsync)
             .WithName("RegisterOrganization")
-            .RequireRateLimiting(RateLimiterPolicies.PublicRegistration);
+            .RequireRateLimiting(RateLimiterPolicies.PublicRegistration)
+            .AddEndpointFilter<ValidationFilter<RegisterOrganizationRequest>>();
 
         return app;
     }
 
     private static async Task<IResult> RegisterAsync(
         RegisterOrganizationRequest request,
-        IValidator<RegisterOrganizationRequest> validator,
         ITenantOnboardingService onboardingService,
         CancellationToken ct)
     {
-        var validation = await validator.ValidateAsync(request, ct);
-        if (!validation.IsValid)
-        {
-            var errors = validation.Errors.Select(e => e.ErrorMessage).ToList();
-            var failed = ApiResponse<object?>.Fail(StatusCodes.Status400BadRequest, "Validation failed.", errors);
-            return Results.Ok(failed);
-        }
-
         var result = await onboardingService.RegisterAsync(request, ct);
         return result.ToHttpResult();
     }

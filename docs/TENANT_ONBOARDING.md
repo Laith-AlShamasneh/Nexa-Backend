@@ -61,7 +61,7 @@ Every handled outcome — success, validation failure, conflict — is returned 
 
 ## Workflow sequence
 
-1. **WebApi** (`OrganizationEndpoints.RegisterAsync`) validates the request via `RegisterOrganizationValidator` (FluentValidation). A failure returns `ApiResponse.Fail(400, ...)` wrapped in HTTP 200.
+1. **WebApi**: `ValidationFilter<RegisterOrganizationRequest>` (`WebApi/Common/Filters/ValidationFilter.cs`, applied via `.AddEndpointFilter<...>()`) runs `RegisterOrganizationValidator` (FluentValidation) before the handler executes. A failure short-circuits with `ApiResponse.Fail(400, ...)` wrapped in HTTP 200; the handler (`OrganizationEndpoints.RegisterAsync`) never even runs. This is a reusable, generic filter — any future endpoint gets request validation by adding one line, not by hand-rolling the check in every handler.
 2. **Application** (`TenantOnboardingService.RegisterAsync`):
    a. Builds Domain entities (`Organization.Create`, `Branch.Create`, `OrganizationSettings.CreateDefault` + `UpdateLocale`, `Person.Create`) — this runs each entity's own creation invariants as a second guard beyond FluentValidation, and generates the client-side `Guid.CreateVersion7()` IDs the whole tenant will use.
    b. Hashes the password (`IPasswordHasher.Hash`) and builds `User.Create` with the hash — **before** any database call.
