@@ -31,7 +31,33 @@ Infrastructure **implements** the interfaces Application declares (`IAuthReposit
 ## Project Responsibilities
 
 ### Domain
-Entities, value objects, domain enums/constants, domain exceptions (`NotFoundException`, `ForbiddenException`, `ValidationAppException`, `DomainException`), invariants. Currently intentionally thin — the education/CRM/billing entities described in [docs/database/](database/DATABASE_FINAL_BLUEPRINT.md) will land here as each vertical is implemented (Phase 5+ of [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md)).
+Organized by business area, not by technical layer — each area gets `Entities/` and, only where the area actually has one, `Enums/`/`Constants/`:
+
+```text
+Domain
+├── Common/           Entity<TId>, ITenantOwned, ISoftDeletable, IAuditable — the only base types
+├── Exceptions/        DomainException, NotFoundException, ForbiddenException, ValidationAppException
+├── Tenancy/
+│   ├── Entities/       Organization, Branch, OrganizationSettings
+│   ├── Enums/          OrganizationStatus, BranchStatus
+│   └── Constants/      TenancyLengths
+├── Identity/
+│   ├── Entities/       Person, User, Role, Permission, UserRole, RolePermission,
+│   │                   RefreshToken, EmailConfirmationToken, PasswordResetToken,
+│   │                   UserSession, UserInvitation, SignInLog
+│   └── Constants/      IdentityLengths, PermissionCodes, SignInEventTypes
+├── Customers/
+│   ├── Entities/       Customer, CustomerNote
+│   ├── Enums/          CustomerStatus
+│   └── Constants/      CustomerLengths
+└── Auditing/
+    ├── Entities/       AuditLog
+    └── Constants/      AuditLengths
+```
+
+Full entity-by-entity rationale (aggregate root vs. supporting vs. append-only, tenant ownership, ID types, the Dapper materialization strategy — private constructors, `Create`/`Reconstitute` factories, no Dapper-visible setters anywhere in Domain): [docs/DOMAIN_MODEL.md](DOMAIN_MODEL.md).
+
+A new business area (Education, Billing, Attendance, ...) gets its own top-level folder following the same shape — don't add its entities into `Customers/` or another existing area's folder just because they're related. Domain exceptions (`NotFoundException`, `ForbiddenException`, `ValidationAppException`, `DomainException`) stay in the pre-existing flat `Exceptions/` folder rather than moving under `Common/` — they're already clean and used across every area, so nesting them would only add churn.
 
 **Never**: a project reference to Application, Infrastructure, Shared (unless truly justified), WebApi, Dapper, ASP.NET Core, HTTP types, logging frameworks, or configuration systems.
 

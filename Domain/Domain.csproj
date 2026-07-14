@@ -6,4 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Justified exception to "Domain has no dependencies": Person.Gender reuses the
+         already-established generic Shared.Enums.Identity.GenderTypes enum instead of
+         duplicating an identical enum inside Domain. No other Shared type is referenced. -->
+    <ProjectReference Include="..\Shared\Shared.csproj" />
+  </ItemGroup>
+
 </Project>

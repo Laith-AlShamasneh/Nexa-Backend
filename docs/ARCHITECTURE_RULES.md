@@ -3,9 +3,15 @@
 These rules take precedence over convenience. A PR that violates one of these should not be merged without an explicit, documented exception.
 
 ## 1. Domain purity
-- `Domain` has no ProjectReference other than, at most, `Shared` — and only if a truly generic primitive is needed.
+- `Domain` has no ProjectReference other than, at most, `Shared` — and only if a truly generic primitive is needed. (Current exception: `Domain → Shared` for `Person.Gender` to reuse `Shared.Enums.Identity.GenderTypes` rather than duplicate it.)
 - No Dapper, no ASP.NET Core, no `Microsoft.Extensions.*`, no logging, no HTTP, no configuration binding in `Domain`.
 - Domain exceptions (`DomainException`, `NotFoundException`, `ForbiddenException`, `ValidationAppException`) express business-rule violations, not infrastructure failures.
+- **No ORM or database mapping attributes anywhere in `Domain`** — no `[Table]`, `[Column]`, `[Key]`, `[ForeignKey]`, no Entity Framework attributes, no Dapper-specific attributes. Mapping between database columns and Domain types is Infrastructure's job (see [DOMAIN_MODEL.md](DOMAIN_MODEL.md) "Dapper construction strategy").
+- **Domain entities must not expose unrestricted public setters.** Properties are `{ get; private set; }` (or get-only where the value never changes after construction); state changes only through named behavior methods that enforce invariants (`user.ChangePasswordHash(...)`, not `user.PasswordHash = ...`).
+- **Dapper query DTOs do not belong in `Domain`.** Row-shaped materialization types (whatever a raw `Dapper.Query<T>()` call returns) are an Infrastructure concern; `Domain` entities are only ever built via their own `Create`/`Reconstitute` factories, never by Dapper's reflection-based mapper directly.
+- **Not every database table requires a rich aggregate.** Read-only seeded catalogs (`Permission`), append-only records (`SignInLog`, `AuditLog`), and pure join facts (`UserRole`, `RolePermission`) are modeled as simply as their actual behavior warrants — see [DOMAIN_MODEL.md](DOMAIN_MODEL.md) for the classification of every table.
+- **Append-only security/audit records must remain append-only.** `SignInLog` and `AuditLog` expose no `Update`/`Delete` method, ever — a future feature needing to "correct" a log entry writes a new entry, it does not mutate an old one.
+- **Domain entities must not depend on full navigation graphs.** No `ICollection<Child>` / parent-reference navigation properties (`public Organization Organization { get; set; }`) anywhere — entities reference each other by Id only, since Dapper never hydrates an object graph and EF-style navigation properties would be actively misleading here.
 
 ## 2. Application independence
 - `Application` depends only on `Domain` and `Shared`.
