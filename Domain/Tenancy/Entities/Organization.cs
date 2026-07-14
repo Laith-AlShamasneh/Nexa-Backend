@@ -17,7 +17,9 @@ namespace Domain.Tenancy.Entities;
 public sealed class Organization : Entity<Guid>, ISoftDeletable, IAuditable
 {
     public string Name { get; private set; }
+    public string? ArabicName { get; private set; }
     public string? LegalName { get; private set; }
+    public string? ArabicLegalName { get; private set; }
     public string Slug { get; private set; }
     public string? LogoUrl { get; private set; }
     public string? Email { get; private set; }
@@ -49,24 +51,32 @@ public sealed class Organization : Entity<Guid>, ISoftDeletable, IAuditable
     }
 
     /// <summary>Creates a brand-new organization in Trial status. Id is generated here, not by the database.</summary>
-    public static Organization Create(string name, string slug, Guid? createdBy = null)
+    public static Organization Create(string name, string slug, string? arabicName = null,
+        string? legalName = null, string? arabicLegalName = null, Guid? createdBy = null)
     {
         var trimmedName = GuardNameLength(GuardNotBlank(name, nameof(name)));
         var trimmedSlug = GuardSlugLength(GuardNotBlank(slug, nameof(slug)));
 
-        return new Organization(Guid.CreateVersion7(), trimmedName, trimmedSlug, DateTime.UtcNow, createdBy);
+        return new Organization(Guid.CreateVersion7(), trimmedName, trimmedSlug, DateTime.UtcNow, createdBy)
+        {
+            ArabicName = GuardArabicNameLength(arabicName),
+            LegalName = legalName,
+            ArabicLegalName = arabicLegalName
+        };
     }
 
     /// <summary>Rebuilds an Organization from persisted state. Infrastructure-only; performs no re-validation.</summary>
     public static Organization Reconstitute(
-        Guid id, string name, string? legalName, string slug, string? logoUrl, string? email, string? phone,
-        string? address, OrganizationStatus status, string? subscriptionPlanCode, DateTime? trialEndsAt,
-        DateTime createdAt, Guid? createdBy, DateTime? updatedAt, Guid? updatedBy,
-        bool isDeleted, DateTime? deletedAt, Guid? deletedBy, byte[]? rowVersion)
+        Guid id, string name, string? arabicName, string? legalName, string? arabicLegalName, string slug,
+        string? logoUrl, string? email, string? phone, string? address, OrganizationStatus status,
+        string? subscriptionPlanCode, DateTime? trialEndsAt, DateTime createdAt, Guid? createdBy,
+        DateTime? updatedAt, Guid? updatedBy, bool isDeleted, DateTime? deletedAt, Guid? deletedBy, byte[]? rowVersion)
     {
         var org = new Organization(id, name, slug, createdAt, createdBy)
         {
+            ArabicName = arabicName,
             LegalName = legalName,
+            ArabicLegalName = arabicLegalName,
             LogoUrl = logoUrl,
             Email = email,
             Phone = phone,
@@ -84,12 +94,14 @@ public sealed class Organization : Entity<Guid>, ISoftDeletable, IAuditable
         return org;
     }
 
-    public void UpdateProfile(string name, string? legalName, string? logoUrl, string? email, string? phone,
-        string? address, Guid? updatedBy)
+    public void UpdateProfile(string name, string? arabicName, string? legalName, string? arabicLegalName,
+        string? logoUrl, string? email, string? phone, string? address, Guid? updatedBy)
     {
         EnsureNotDeleted();
         Name = GuardNameLength(GuardNotBlank(name, nameof(name)));
+        ArabicName = GuardArabicNameLength(arabicName);
         LegalName = legalName;
+        ArabicLegalName = arabicLegalName;
         LogoUrl = logoUrl;
         Email = email;
         Phone = phone;
@@ -180,6 +192,13 @@ public sealed class Organization : Entity<Guid>, ISoftDeletable, IAuditable
     {
         if (value.Length > TenancyLengths.Organization.SlugMaxLength)
             throw new ValidationAppException($"Organization slug cannot exceed {TenancyLengths.Organization.SlugMaxLength} characters.");
+        return value;
+    }
+
+    private static string? GuardArabicNameLength(string? value)
+    {
+        if (value is { Length: > 0 } && value.Length > TenancyLengths.Organization.NameMaxLength)
+            throw new ValidationAppException($"Arabic organization name cannot exceed {TenancyLengths.Organization.NameMaxLength} characters.");
         return value;
     }
 }

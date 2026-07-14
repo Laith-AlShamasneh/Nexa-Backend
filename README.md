@@ -68,8 +68,9 @@ Numbered SQL scripts under [`Database/Migrations/`](Database/Migrations), applie
 7. `007_Audit_AuditLogs.sql`
 8. `008_Seed_GlobalData.sql` — global permission catalog + system role templates
 9. `009_Harden_MultiTenant_Identity.sql` — composite tenant-safe foreign keys, `OrganizationSettings`, `UserSessions`, `UserInvitations`, tenant-local role materialization
+10. `010_Bilingual_Name_Fields.sql` — Arabic counterpart columns for every English name field (Organizations, Branches, Persons, Roles, Permissions, Customers)
 
-Full schema design and rationale: [docs/database/DATABASE_FINAL_BLUEPRINT.md](docs/database/DATABASE_FINAL_BLUEPRINT.md).
+All 10 migrations have been applied to the `Nexa` database on `localhost\SQLEXPRESS`. Full schema design and rationale: [docs/database/DATABASE_FINAL_BLUEPRINT.md](docs/database/DATABASE_FINAL_BLUEPRINT.md); Domain-layer mapping: [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md).
 
 ## Documentation index
 

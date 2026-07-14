@@ -1,6 +1,28 @@
 # Nexa — Domain Model
 
-This documents the `Domain` project as reflected from the database after all migrations `001`–`009` are applied. Every finalized table in [Database/Migrations/](../Database/Migrations) is accounted for below — either as a Domain type or with an explicit reason it isn't one. Source of truth for the schema itself: [docs/database/DATABASE_FINAL_BLUEPRINT.md](database/DATABASE_FINAL_BLUEPRINT.md).
+This documents the `Domain` project as reflected from the database after all migrations `001`–`010` are applied. Every finalized table in [Database/Migrations/](../Database/Migrations) is accounted for below — either as a Domain type or with an explicit reason it isn't one. Source of truth for the schema itself: [docs/database/DATABASE_FINAL_BLUEPRINT.md](database/DATABASE_FINAL_BLUEPRINT.md).
+
+## Bilingual (English/Arabic) name fields (migration 010)
+
+Every user-facing name field has an Arabic counterpart, added alongside the existing (English) column — nothing was renamed:
+
+| English column | Arabic column | Table / Domain type |
+|---|---|---|
+| `Name` | `ArabicName` | `tenant.Organizations` / `Organization` |
+| `LegalName` | `ArabicLegalName` | `tenant.Organizations` / `Organization` |
+| `Name` | `ArabicName` | `tenant.Branches` / `Branch` |
+| `FirstName` | `ArabicFirstName` | `identity.Persons` / `Person` |
+| `LastName` | `ArabicLastName` | `identity.Persons` / `Person` |
+| `FullName` (computed) | `ArabicFullName` (computed) | `identity.Persons` / `Person` |
+| `Name` | `ArabicName` | `identity.Roles` / `Role` |
+| `Name` | `ArabicName` | `identity.Permissions` / `Permission` |
+| `DisplayName` | `ArabicDisplayName` | `crm.Customers` / `Customer` |
+
+All Arabic columns are nullable — not every row will have a translation yet, and the English column remains the required/primary field. `ArabicFullName` mirrors the database's computed column exactly: `NULL` when neither `ArabicFirstName` nor `ArabicLastName` is set (not an empty string), otherwise the trimmed concatenation of whichever parts are present — implemented as a read-only C# computed property on `Person`, the same pattern already used for the English `FullName`.
+
+**Not extended to bilingual**: `Username` (a login handle, not a display name), `EntityName` on `AuditLog` (a technical type identifier like `"crm.Customers"`, not human-facing text), `Description`/`Note`/`Address` fields anywhere (the request was specifically about **name** fields — descriptions and free-text content are a separate, broader localization concern not in scope here).
+
+**Note on the pre-existing Authentication feature**: `Application/Features/Authentication/DTOs/RegisterDto.cs` already had its own bilingual convention from before this change — suffixed `FirstNameEn`/`FirstNameAr`, `LastNameEn`/`LastNameAr`, `DisplayNameEn`/`DisplayNameAr` — rather than the `Arabic`-prefixed style used here. That Application-layer code was untouched by this change (it predates the Domain model and isn't wired to it yet — see "Deferred Work" in the Phase 0 report); reconciling the two naming conventions is next-phase work when the Authentication feature is actually connected to `Person`/`User`.
 
 ## Domain areas
 
@@ -22,13 +44,13 @@ Each area follows the same internal shape: `Entities/`, and `Enums/`/`Constants/
 
 | SQL Table | Domain Type | Classification | Tenant-Owned | Notes |
 |---|---|---|---|---|
-| `tenant.Organizations` | `Organization` | Aggregate root | — (it *is* the tenant) | `OrganizationStatus` enum (0-3, CK-restricted) |
-| `tenant.Branches` | `Branch` | Aggregate root (own lifecycle, queried independently) | Yes (`ITenantOwned`) | `BranchStatus` enum (0/1); "one main branch" is a cross-aggregate invariant, documented not enforced here |
+| `tenant.Organizations` | `Organization` | Aggregate root | — (it *is* the tenant) | `OrganizationStatus` enum (0-3, CK-restricted); `ArabicName`/`ArabicLegalName` (010) |
+| `tenant.Branches` | `Branch` | Aggregate root (own lifecycle, queried independently) | Yes (`ITenantOwned`) | `BranchStatus` enum (0/1); `ArabicName` (010); "one main branch" is a cross-aggregate invariant, documented not enforced here |
 | `tenant.OrganizationSettings` | `OrganizationSettings` | Aggregate root (1:1 extension, own Dapper query) | Yes — `OrganizationId` is both Id and FK | No soft delete; lives/dies with its Organization |
-| `identity.Persons` | `Person` | Aggregate root | Yes (`ITenantOwned`) | `Gender` reuses `Shared.Enums.Identity.GenderTypes`; `FullName` is a computed C# property (not a DB-mirrored field) |
+| `identity.Persons` | `Person` | Aggregate root | Yes (`ITenantOwned`) | `Gender` reuses `Shared.Enums.Identity.GenderTypes`; `FullName`/`ArabicFullName` are computed C# properties (not DB-mirrored fields); `ArabicFirstName`/`ArabicLastName` (010) |
 | `identity.Users` | `User` | Aggregate root | Yes (`ITenantOwned`) | `NormalizedEmail`/`NormalizedUsername` are DB-computed, read-only, populated only via `Reconstitute` |
-| `identity.Roles` | `Role` | Aggregate root | **No** — `OrganizationId` is nullable (global template vs. tenant-local); exposed directly, not via `ITenantOwned` | `TemplateRoleId` (009) links a tenant clone back to its template |
-| `identity.Permissions` | `Permission` | Lookup/catalog | No (global) | Read-only: seeded by migration 008's `MERGE`, never created/edited through app code — no `Create`, only `Reconstitute`. See `Constants.PermissionCodes` |
+| `identity.Roles` | `Role` | Aggregate root | **No** — `OrganizationId` is nullable (global template vs. tenant-local); exposed directly, not via `ITenantOwned` | `TemplateRoleId` (009) links a tenant clone back to its template; `ArabicName` (010) |
+| `identity.Permissions` | `Permission` | Lookup/catalog | No (global) | Read-only: seeded by migration 008's `MERGE`, never created/edited through app code — no `Create`, only `Reconstitute`. See `Constants.PermissionCodes`. `ArabicName` (010) |
 | `identity.RolePermissions` | `RolePermission` | Persistence-only relationship, modeled | No | `sealed record`, composite key (RoleId, PermissionId) — see §5 below |
 | `identity.UserRoles` | `UserRole` | Persistence-only relationship, modeled | Yes (denormalized `OrganizationId`, not via `ITenantOwned` since no single-Id base fits a composite key) | `sealed record`, composite key (UserId, RoleId) — see §5 below |
 | `identity.RefreshTokens` | `RefreshToken` | Supporting entity | Yes (`OrganizationId` property, no `ITenantOwned` — composite-key-free but see note below) | Only the hash is stored; `TokenFamilyId`/`ReplacedByTokenId`/`SessionId` (009) back rotation + reuse detection |
@@ -37,7 +59,7 @@ Each area follows the same internal shape: `Entities/`, and `Enums/`/`Constants/
 | `identity.UserSessions` | `UserSession` (009, new) | Supporting entity | Yes (`ITenantOwned`) | Backs "log out everywhere" |
 | `identity.UserInvitations` | `UserInvitation` (009, new) | Supporting entity | Yes (`ITenantOwned`) | "Invite a teammate" flow |
 | `identity.SignInLogs` | `SignInLog` | Append-only security record | **No** — `OrganizationId`/`UserId` both nullable | No FK in the database by design; no update/delete methods; `Successful(...)`/`Failed(...)` factories |
-| `crm.Customers` | `Customer` | Aggregate root | Yes (`ITenantOwned`) | `CustomerStatus` enum (0/1/2); `CustomerType` stays a plain guarded string (vertical-defined label), never an enum |
+| `crm.Customers` | `Customer` | Aggregate root | Yes (`ITenantOwned`) | `CustomerStatus` enum (0/1/2); `CustomerType` stays a plain guarded string (vertical-defined label), never an enum; `ArabicDisplayName` (010) |
 | `crm.CustomerNotes` | `CustomerNote` | Supporting entity | Yes (`ITenantOwned`) | `CreatedBy` is required (not nullable, unlike most other entities); gained `DeletedAt`/`DeletedBy` in 009 |
 | `audit.AuditLogs` | `AuditLog` | Append-only operational record | **No** — `OrganizationId`/`UserId` both nullable | No FK in the database by design; no update/delete methods; `Record(...)` factory |
 | `dbo.SchemaVersions` (009) | *(none)* | Not modeled | N/A | Ops/migration-tracking artifact, not a business concept — see "Intentionally not modeled" below |

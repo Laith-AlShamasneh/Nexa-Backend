@@ -26,6 +26,7 @@ public sealed class Role : Entity<Guid>, IAuditable
     public Guid? OrganizationId { get; }
     public Guid? TemplateRoleId { get; }
     public string Name { get; private set; }
+    public string? ArabicName { get; private set; }
     public string? Description { get; private set; }
     public bool IsSystemRole { get; private set; }
 
@@ -53,10 +54,14 @@ public sealed class Role : Entity<Guid>, IAuditable
     }
 
     /// <summary>Creates a global role template (Owner/Admin/Accountant/Teacher), shared by every tenant, never assigned directly.</summary>
-    public static Role CreateSystemTemplate(string name, string? description = null, Guid? createdBy = null)
+    public static Role CreateSystemTemplate(string name, string? arabicName = null, string? description = null,
+        Guid? createdBy = null)
     {
-        var role = new Role(Guid.CreateVersion7(), null, null, GuardName(name), true, DateTime.UtcNow, createdBy);
-        role.Description = description;
+        var role = new Role(Guid.CreateVersion7(), null, null, GuardName(name), true, DateTime.UtcNow, createdBy)
+        {
+            ArabicName = GuardArabicName(arabicName),
+            Description = description
+        };
         return role;
     }
 
@@ -66,25 +71,29 @@ public sealed class Role : Entity<Guid>, IAuditable
     /// <paramref name="isSystemRole"/> = true) or a genuinely custom role the tenant
     /// defines for itself (<paramref name="templateRoleId"/> = null).
     /// </summary>
-    public static Role CreateTenantRole(Guid organizationId, string name, string? description = null,
-        bool isSystemRole = false, Guid? templateRoleId = null, Guid? createdBy = null)
+    public static Role CreateTenantRole(Guid organizationId, string name, string? arabicName = null,
+        string? description = null, bool isSystemRole = false, Guid? templateRoleId = null, Guid? createdBy = null)
     {
         if (organizationId == Guid.Empty)
             throw new ValidationAppException("OrganizationId cannot be empty.");
 
         var role = new Role(Guid.CreateVersion7(), organizationId, templateRoleId, GuardName(name), isSystemRole,
-            DateTime.UtcNow, createdBy);
-        role.Description = description;
+            DateTime.UtcNow, createdBy)
+        {
+            ArabicName = GuardArabicName(arabicName),
+            Description = description
+        };
         return role;
     }
 
     public static Role Reconstitute(
-        Guid id, Guid? organizationId, Guid? templateRoleId, string name, string? description, bool isSystemRole,
-        DateTime createdAt, Guid? createdBy, DateTime? updatedAt, Guid? updatedBy,
+        Guid id, Guid? organizationId, Guid? templateRoleId, string name, string? arabicName, string? description,
+        bool isSystemRole, DateTime createdAt, Guid? createdBy, DateTime? updatedAt, Guid? updatedBy,
         bool isDeleted, DateTime? deletedAt, Guid? deletedBy)
     {
         return new Role(id, organizationId, templateRoleId, name, isSystemRole, createdAt, createdBy)
         {
+            ArabicName = arabicName,
             Description = description,
             UpdatedAt = updatedAt,
             UpdatedBy = updatedBy,
@@ -94,10 +103,11 @@ public sealed class Role : Entity<Guid>, IAuditable
         };
     }
 
-    public void Rename(string name, string? description, Guid? updatedBy)
+    public void Rename(string name, string? arabicName, string? description, Guid? updatedBy)
     {
         EnsureNotDeleted();
         Name = GuardName(name);
+        ArabicName = GuardArabicName(arabicName);
         Description = description;
         Touch(updatedBy);
     }
@@ -137,5 +147,12 @@ public sealed class Role : Entity<Guid>, IAuditable
         if (trimmed.Length > IdentityLengths.Role.NameMaxLength)
             throw new ValidationAppException($"Role name cannot exceed {IdentityLengths.Role.NameMaxLength} characters.");
         return trimmed;
+    }
+
+    private static string? GuardArabicName(string? value)
+    {
+        if (value is { Length: > 0 } && value.Length > IdentityLengths.Role.NameMaxLength)
+            throw new ValidationAppException($"Arabic role name cannot exceed {IdentityLengths.Role.NameMaxLength} characters.");
+        return value;
     }
 }

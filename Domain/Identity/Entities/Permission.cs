@@ -14,21 +14,23 @@ public sealed class Permission : Entity<int>
 {
     public string Code { get; }
     public string Name { get; }
+    public string? ArabicName { get; }
     public string? Description { get; }
     public string? Module { get; }
     public DateTime CreatedAt { get; }
 
-    private Permission(int id, string code, string name, string? description, string? module, DateTime createdAt)
-        : base(id)
+    private Permission(int id, string code, string name, string? arabicName, string? description, string? module,
+        DateTime createdAt) : base(id)
     {
         Code = code;
         Name = name;
+        ArabicName = arabicName;
         Description = description;
         Module = module;
         CreatedAt = createdAt;
     }
 
-    public static Permission Reconstitute(int id, string code, string name, string? description, string? module,
-        DateTime createdAt) =>
-        new(id, code, name, description, module, createdAt);
+    public static Permission Reconstitute(int id, string code, string name, string? arabicName, string? description,
+        string? module, DateTime createdAt) =>
+        new(id, code, name, arabicName, description, module, createdAt);
 }

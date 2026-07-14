@@ -20,6 +20,7 @@ public sealed class Customer : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudi
     public string? CustomerCode { get; private set; }
     public string CustomerType { get; private set; }
     public string? DisplayName { get; private set; }
+    public string? ArabicDisplayName { get; private set; }
     public CustomerStatus Status { get; private set; }
     public string? Source { get; private set; }
 
@@ -45,7 +46,8 @@ public sealed class Customer : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudi
     }
 
     public static Customer Create(Guid organizationId, string customerType, string? displayName = null,
-        Guid? personId = null, string? customerCode = null, string? source = null, Guid? createdBy = null)
+        string? arabicDisplayName = null, Guid? personId = null, string? customerCode = null, string? source = null,
+        Guid? createdBy = null)
     {
         if (organizationId == Guid.Empty)
             throw new ValidationAppException("OrganizationId cannot be empty.");
@@ -56,6 +58,7 @@ public sealed class Customer : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudi
             PersonId = personId,
             CustomerCode = GuardOptionalLength(customerCode, CustomerLengths.CustomerCodeMaxLength, nameof(customerCode)),
             DisplayName = GuardOptionalLength(displayName, CustomerLengths.DisplayNameMaxLength, nameof(displayName)),
+            ArabicDisplayName = GuardOptionalLength(arabicDisplayName, CustomerLengths.DisplayNameMaxLength, nameof(arabicDisplayName)),
             Source = GuardOptionalLength(source, CustomerLengths.SourceMaxLength, nameof(source))
         };
         return customer;
@@ -63,14 +66,16 @@ public sealed class Customer : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudi
 
     public static Customer Reconstitute(
         Guid id, Guid organizationId, Guid? personId, string? customerCode, string customerType,
-        string? displayName, CustomerStatus status, string? source, DateTime createdAt, Guid? createdBy,
-        DateTime? updatedAt, Guid? updatedBy, bool isDeleted, DateTime? deletedAt, Guid? deletedBy, byte[]? rowVersion)
+        string? displayName, string? arabicDisplayName, CustomerStatus status, string? source, DateTime createdAt,
+        Guid? createdBy, DateTime? updatedAt, Guid? updatedBy, bool isDeleted, DateTime? deletedAt, Guid? deletedBy,
+        byte[]? rowVersion)
     {
         return new Customer(id, organizationId, customerType, createdAt, createdBy)
         {
             PersonId = personId,
             CustomerCode = customerCode,
             DisplayName = displayName,
+            ArabicDisplayName = arabicDisplayName,
             Status = status,
             Source = source,
             UpdatedAt = updatedAt,
@@ -89,10 +94,11 @@ public sealed class Customer : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudi
         Touch(updatedBy);
     }
 
-    public void UpdateDisplayName(string? displayName, Guid? updatedBy)
+    public void UpdateDisplayName(string? displayName, string? arabicDisplayName, Guid? updatedBy)
     {
         EnsureNotDeleted();
         DisplayName = GuardOptionalLength(displayName, CustomerLengths.DisplayNameMaxLength, nameof(displayName));
+        ArabicDisplayName = GuardOptionalLength(arabicDisplayName, CustomerLengths.DisplayNameMaxLength, nameof(arabicDisplayName));
         Touch(updatedBy);
     }
 

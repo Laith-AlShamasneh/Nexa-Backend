@@ -21,6 +21,7 @@ public sealed class Branch : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
 {
     public Guid OrganizationId { get; }
     public string Name { get; private set; }
+    public string? ArabicName { get; private set; }
     public string? Code { get; private set; }
     public string? Address { get; private set; }
     public string? Phone { get; private set; }
@@ -50,22 +51,27 @@ public sealed class Branch : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
         CreatedBy = createdBy;
     }
 
-    public static Branch Create(Guid organizationId, string name, bool isMainBranch = false, Guid? createdBy = null)
+    public static Branch Create(Guid organizationId, string name, string? arabicName = null,
+        bool isMainBranch = false, Guid? createdBy = null)
     {
         if (organizationId == Guid.Empty)
             throw new ValidationAppException("OrganizationId cannot be empty.");
 
         var trimmedName = GuardName(name);
-        return new Branch(Guid.CreateVersion7(), organizationId, trimmedName, isMainBranch, DateTime.UtcNow, createdBy);
+        return new Branch(Guid.CreateVersion7(), organizationId, trimmedName, isMainBranch, DateTime.UtcNow, createdBy)
+        {
+            ArabicName = GuardArabicName(arabicName)
+        };
     }
 
     public static Branch Reconstitute(
-        Guid id, Guid organizationId, string name, string? code, string? address, string? phone, string? email,
-        bool isMainBranch, BranchStatus status, DateTime createdAt, Guid? createdBy, DateTime? updatedAt,
-        Guid? updatedBy, bool isDeleted, DateTime? deletedAt, Guid? deletedBy, byte[]? rowVersion)
+        Guid id, Guid organizationId, string name, string? arabicName, string? code, string? address, string? phone,
+        string? email, bool isMainBranch, BranchStatus status, DateTime createdAt, Guid? createdBy,
+        DateTime? updatedAt, Guid? updatedBy, bool isDeleted, DateTime? deletedAt, Guid? deletedBy, byte[]? rowVersion)
     {
         return new Branch(id, organizationId, name, isMainBranch, createdAt, createdBy)
         {
+            ArabicName = arabicName,
             Code = code,
             Address = address,
             Phone = phone,
@@ -80,10 +86,11 @@ public sealed class Branch : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
         };
     }
 
-    public void UpdateDetails(string name, string? code, Guid? updatedBy)
+    public void UpdateDetails(string name, string? arabicName, string? code, Guid? updatedBy)
     {
         EnsureNotDeleted();
         Name = GuardName(name);
+        ArabicName = GuardArabicName(arabicName);
         Code = code;
         Touch(updatedBy);
     }
@@ -161,5 +168,12 @@ public sealed class Branch : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
         if (trimmed.Length > TenancyLengths.Branch.NameMaxLength)
             throw new ValidationAppException($"Branch name cannot exceed {TenancyLengths.Branch.NameMaxLength} characters.");
         return trimmed;
+    }
+
+    private static string? GuardArabicName(string? arabicName)
+    {
+        if (arabicName is { Length: > 0 } && arabicName.Length > TenancyLengths.Branch.NameMaxLength)
+            throw new ValidationAppException($"Arabic branch name cannot exceed {TenancyLengths.Branch.NameMaxLength} characters.");
+        return arabicName;
     }
 }

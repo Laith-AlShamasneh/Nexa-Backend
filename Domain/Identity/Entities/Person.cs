@@ -17,9 +17,21 @@ public sealed class Person : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
     public Guid OrganizationId { get; }
     public string FirstName { get; private set; }
     public string LastName { get; private set; }
+    public string? ArabicFirstName { get; private set; }
+    public string? ArabicLastName { get; private set; }
 
     /// <summary>Display convenience only — not the database's computed `FullName` column value; both derive the same trimmed concatenation.</summary>
     public string FullName => $"{FirstName} {LastName}".Trim();
+
+    /// <summary>
+    /// Display convenience mirroring the database's computed `ArabicFullName` column:
+    /// null when neither Arabic name part is set (not an empty string), otherwise the
+    /// trimmed concatenation of whichever parts are present.
+    /// </summary>
+    public string? ArabicFullName =>
+        ArabicFirstName is null && ArabicLastName is null
+            ? null
+            : $"{ArabicFirstName} {ArabicLastName}".Trim();
 
     public string? Email { get; private set; }
     public string? Phone { get; private set; }
@@ -48,8 +60,9 @@ public sealed class Person : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
         CreatedBy = createdBy;
     }
 
-    public static Person Create(Guid organizationId, string firstName, string lastName, string? email = null,
-        string? phone = null, DateOnly? dateOfBirth = null, GenderTypes? gender = null, Guid? createdBy = null)
+    public static Person Create(Guid organizationId, string firstName, string lastName, string? arabicFirstName = null,
+        string? arabicLastName = null, string? email = null, string? phone = null, DateOnly? dateOfBirth = null,
+        GenderTypes? gender = null, Guid? createdBy = null)
     {
         if (organizationId == Guid.Empty)
             throw new ValidationAppException("OrganizationId cannot be empty.");
@@ -57,6 +70,8 @@ public sealed class Person : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
         var person = new Person(Guid.CreateVersion7(), organizationId, GuardFirstName(firstName),
             GuardLastName(lastName), DateTime.UtcNow, createdBy)
         {
+            ArabicFirstName = GuardArabicFirstName(arabicFirstName),
+            ArabicLastName = GuardArabicLastName(arabicLastName),
             Email = email,
             Phone = phone,
             DateOfBirth = dateOfBirth,
@@ -66,12 +81,15 @@ public sealed class Person : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
     }
 
     public static Person Reconstitute(
-        Guid id, Guid organizationId, string firstName, string lastName, string? email, string? phone,
-        DateOnly? dateOfBirth, GenderTypes? gender, string? profileImageUrl, DateTime createdAt, Guid? createdBy,
-        DateTime? updatedAt, Guid? updatedBy, bool isDeleted, DateTime? deletedAt, Guid? deletedBy, byte[]? rowVersion)
+        Guid id, Guid organizationId, string firstName, string lastName, string? arabicFirstName,
+        string? arabicLastName, string? email, string? phone, DateOnly? dateOfBirth, GenderTypes? gender,
+        string? profileImageUrl, DateTime createdAt, Guid? createdBy, DateTime? updatedAt, Guid? updatedBy,
+        bool isDeleted, DateTime? deletedAt, Guid? deletedBy, byte[]? rowVersion)
     {
         return new Person(id, organizationId, firstName, lastName, createdAt, createdBy)
         {
+            ArabicFirstName = arabicFirstName,
+            ArabicLastName = arabicLastName,
             Email = email,
             Phone = phone,
             DateOfBirth = dateOfBirth,
@@ -86,12 +104,14 @@ public sealed class Person : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
         };
     }
 
-    public void UpdatePersonalDetails(string firstName, string lastName, DateOnly? dateOfBirth, GenderTypes? gender,
-        Guid? updatedBy)
+    public void UpdatePersonalDetails(string firstName, string lastName, string? arabicFirstName,
+        string? arabicLastName, DateOnly? dateOfBirth, GenderTypes? gender, Guid? updatedBy)
     {
         EnsureNotDeleted();
         FirstName = GuardFirstName(firstName);
         LastName = GuardLastName(lastName);
+        ArabicFirstName = GuardArabicFirstName(arabicFirstName);
+        ArabicLastName = GuardArabicLastName(arabicLastName);
         DateOfBirth = dateOfBirth;
         Gender = gender;
         Touch(updatedBy);
@@ -150,5 +170,16 @@ public sealed class Person : Entity<Guid>, ITenantOwned, ISoftDeletable, IAudita
         if (trimmed.Length > maxLength)
             throw new ValidationAppException($"{label} cannot exceed {maxLength} characters.");
         return trimmed;
+    }
+
+    private static string? GuardArabicFirstName(string? value) => GuardOptionalName(value, IdentityLengths.Person.FirstNameMaxLength, "Arabic first name");
+    private static string? GuardArabicLastName(string? value) => GuardOptionalName(value, IdentityLengths.Person.LastNameMaxLength, "Arabic last name");
+
+    private static string? GuardOptionalName(string? value, int maxLength, string label)
+    {
+        if (value is not { Length: > 0 }) return value;
+        if (value.Length > maxLength)
+            throw new ValidationAppException($"{label} cannot exceed {maxLength} characters.");
+        return value;
     }
 }
