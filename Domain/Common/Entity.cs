@@ -11,12 +11,10 @@ namespace Domain.Common;
 /// constructor exists only for derived types' own <c>Create</c>/<c>Reconstitute</c>
 /// factories to call.
 /// </remarks>
-public abstract class Entity<TId> : IEquatable<Entity<TId>>
+public abstract class Entity<TId>(TId id) : IEquatable<Entity<TId>>
     where TId : notnull
 {
-    public TId Id { get; protected set; }
-
-    protected Entity(TId id) => Id = id;
+    public TId Id { get; protected set; } = id;
 
     public bool Equals(Entity<TId>? other) =>
         other is not null && (ReferenceEquals(this, other) || Id.Equals(other.Id));
