@@ -82,30 +82,77 @@ only what the processing engine needs plus the minimum to seed/manage
 entries (`Create`, `SetEnabled`). Add the rest when an admin-facing feature
 for managing schedules is actually built, not preemptively.
 
+## C# implementation (Application + Infrastructure)
+
+- `Application/Features/BackgroundJobs/DbModels/BackgroundJobDbModels.cs` —
+  `BackgroundJobEnqueueInput.CreatedBy` is now `Guid?` (was `long?`, which
+  didn't match the `UNIQUEIDENTIFIER` column and would have failed at
+  runtime). Added `OrganizationId Guid?` (informational, see above). Added
+  `BackgroundJobEnqueueResult` to map the proc's `(ResultCode, JobId)` row.
+- `Application/Interfaces/Repositories/IBackgroundJobRepository.cs` —
+  `EnqueueAsync` now returns `Task<long?>` (the enqueued or dedup-matched
+  JobId) instead of `Task`.
+- `Infrastructure/Jobs/BackgroundJobRepository.cs` — updated to the above;
+  `@CreatedBy`/`@OrganizationId` now bound as `DbType.Guid`.
+- `Infrastructure/Jobs/BackgroundJobService.cs` — passes
+  `OrganizationId = userContext.OrganizationId` (real `Guid?`, already
+  correctly typed) but **`CreatedBy = null`** — `IUserContext.UserId` is
+  still `long` (see README "Current limitations"), so it cannot be mapped
+  to the `Guid` column yet. Fix together when the identity long/Guid
+  reconciliation lands.
+- `Application/Features/ScheduledJobs/DbModels/ScheduledJobDbModels.cs`,
+  `Application/Interfaces/Repositories/IScheduledJobRepository.cs`,
+  `Infrastructure/Jobs/ScheduledJobRepository.cs` — new, one method per
+  stored procedure (`Create`/`ClaimDue`/`CompleteRun`/`SetEnabled`).
+- `Infrastructure/Jobs/ScheduledJobProcessor.cs` — new `BackgroundService`,
+  same shape as `BackgroundJobProcessor`: polls `ClaimDueAsync` on
+  `BackgroundJobOptions.PollingIntervalSeconds`, computes each schedule's
+  next occurrence (`Cronos` for `CronExpression`, `DateTime.UtcNow.AddSeconds`
+  for `IntervalSeconds`), enqueues via `IBackgroundJobRepository`, then
+  releases the claim via `CompleteRunAsync`. Runs sequentially per batch
+  (not parallelized like job execution) — triggering a schedule is cheap;
+  there's no slow handler work to parallelize. On any exception the claim
+  is deliberately left in place so `ClaimDue`'s timeout window reclaims it
+  on a later poll, mirroring `BackgroundJobs`' own retry-after-abandonment
+  behavior.
+- `Infrastructure/Extensions/ServiceCollectionExtensions.cs` — registers
+  `IScheduledJobRepository`; only registers `ScheduledJobProcessor` as a
+  hosted service when `BackgroundJobOptions.RunSchedulers` is true (reads
+  the raw config section directly, since hosted-service registration
+  happens before the options pipeline is available).
+- Added the `Cronos` NuGet package to `Infrastructure.csproj` for
+  `CronExpression`-based schedules.
+
 ## Verified
 
-Applied to the `Nexa` database on `localhost\SQLEXPRESS` and smoke-tested
-end-to-end via direct SQL: enqueue, dedup-collision-returns-same-id,
-pickup-claims-once (a second immediate pickup returns nothing), fail with
-backoff, complete, scheduled-job create/claim/claim-again-returns-nothing/
-complete-run/set-enabled. All test rows were deleted afterward.
+Applied to the `Nexa` database on `localhost\SQLEXPRESS`. Two rounds of
+testing:
 
-## C# work still needed (not done in this pass — database only)
+1. **Direct SQL**, all 8 procedures: enqueue, dedup-collision-returns-same-id,
+   pickup-claims-once (a second immediate pickup returns nothing), fail with
+   backoff, complete, scheduled-job create/claim/claim-again-returns-nothing/
+   complete-run/set-enabled.
+2. **Live, end-to-end through the running WebApi** (temporarily pointed at
+   `Nexa` via a `ConnectionStrings__SqlConnection` environment override —
+   no file changes; the app's own configured connection string was left
+   untouched): seeded a `ScheduledJobs` row with a 5-second interval and no
+   registered handler. Confirmed `ScheduledJobProcessor` claimed it,
+   correctly advanced `NextRunAt` by 5 seconds each cycle, and enqueued a
+   `BackgroundJobs` row each time (`LastEnqueuedJobId` tracked correctly);
+   confirmed `BackgroundJobProcessor` picked each one up and correctly
+   failed it with "No handler registered for job type" (the expected
+   outcome for a job type with no `IJobHandler` registered) — end-to-end
+   confirmation of both processors working together, not just the SQL
+   layer. All test rows deleted afterward; solution rebuilt clean (0
+   warnings/errors).
 
-- `Infrastructure/Jobs/BackgroundJobRepository.cs` already calls the exact
-  SP names/parameters this migration creates — it should work as-is, but
-  has not yet been exercised against this schema from C#.
-- `BackgroundJobEnqueueInput.CreatedBy` and `BackgroundJobFailInput` are
-  typed against the project's still-unresolved `long` vs. `Guid` user-id
-  inconsistency (see README "Current limitations"). `CreatedBy` on the new
-  table is `UNIQUEIDENTIFIER`; the C# contract will need updating to
-  `Guid?` when this gets wired up, not before.
-- No repository/service/hosted-service exists yet for `ScheduledJobs` — this
-  is new. A future `ScheduledJobRepository` + a hosted service that calls
-  `ClaimDue` on a timer, computes each schedule's next run (via a cron
-  library like Cronos for `CronExpression`, or simple interval math for
-  `IntervalSeconds`), enqueues via `usp_BackgroundJob_Enqueue`, and reports
-  back via `CompleteRun`.
-- `BackgroundJobOptions.RunSchedulers` already exists as a flag anticipating
-  this — wire it to actually gate the new scheduler hosted service once it
-  exists.
+## Still not done
+
+- No `IJobHandler` exists yet for any recurring job — `ScheduledJobs` has
+  no real consumers registered. The processor and schema are ready for the
+  first one.
+- No admin-facing endpoint/service to create or manage `ScheduledJobs`
+  entries — only the raw repository exists. `usp_ScheduledJob_Create` must
+  currently be called by seed/migration SQL or a future admin feature.
+- `CreatedBy` on both tables stays `null` from all current C# call sites
+  until the `IUserContext.UserId` long/Guid reconciliation happens.

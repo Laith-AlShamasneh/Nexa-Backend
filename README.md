@@ -92,7 +92,7 @@ All 12 migrations have been applied to the `Nexa` database on `localhost\SQLEXPR
 ## Current limitations
 
 - Only one real business endpoint exists so far: `POST /api/organizations/register` (Tenant Onboarding — see [docs/TENANT_ONBOARDING.md](docs/TENANT_ONBOARDING.md)). Everything else is `/health` and `/swagger`.
-- No stored procedures exist yet for Authentication or Notifications — the C# repositories reference SP names that must still be written. BackgroundJobs' stored procedures now exist (migration 012); the repository has not yet been exercised end-to-end against them, and there is no `ScheduledJobs` repository/hosted-service yet at all — see [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md).
+- No stored procedures exist yet for Authentication or Notifications — the C# repositories reference SP names that must still be written. BackgroundJobs and the new ScheduledJobs (recurring jobs) are fully wired end-to-end (database, Application, Infrastructure, hosted services) and verified live — see [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md).
 - `IUserContext.UserId` and the Authentication DB models use `long` IDs, while the finalized database design uses `Guid` (`UNIQUEIDENTIFIER`) for `Users.Id` — this mismatch needs reconciling before the Identity phase ships (see the Phase 0 cleanup report / remaining risks).
 - Row-Level Security (the planned third layer of tenant-isolation defense) is not yet implemented.
 - No automated tests exist yet.

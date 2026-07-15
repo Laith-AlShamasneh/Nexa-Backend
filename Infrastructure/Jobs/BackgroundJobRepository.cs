@@ -8,20 +8,20 @@ namespace Infrastructure.Jobs;
 
 internal sealed class BackgroundJobRepository(IDbExecutor db) : IBackgroundJobRepository
 {
-    public Task EnqueueAsync(BackgroundJobEnqueueInput input, CancellationToken ct = default)
+    public async Task<long?> EnqueueAsync(BackgroundJobEnqueueInput input, CancellationToken ct = default)
     {
         var p = new DynamicParameters();
-        p.Add("@JobType",     input.JobType,     DbType.String,   size: 200);
-        p.Add("@Payload",     input.Payload,     DbType.String);
-        p.Add("@Priority",    input.Priority,    DbType.Byte);
-        p.Add("@ScheduledAt", input.ScheduledAt, DbType.DateTime2);
-        p.Add("@MaxAttempts", input.MaxAttempts, DbType.Int32);
-        p.Add("@CreatedBy",   input.CreatedBy,   DbType.Int64);
-        // Only sent when present so the call still works against an SP build that
-        // predates the @DedupKey parameter (H7 migration applied separately).
-        if (input.DedupKey is not null)
-            p.Add("@DedupKey", input.DedupKey, DbType.String, size: 200);
-        return db.ExecuteAsync("dbo.usp_BackgroundJob_Enqueue", p, ct);
+        p.Add("@JobType",        input.JobType,        DbType.String,   size: 200);
+        p.Add("@Payload",        input.Payload,        DbType.String);
+        p.Add("@Priority",       input.Priority,       DbType.Byte);
+        p.Add("@ScheduledAt",    input.ScheduledAt,    DbType.DateTime2);
+        p.Add("@MaxAttempts",    input.MaxAttempts,    DbType.Int32);
+        p.Add("@CreatedBy",      input.CreatedBy,      DbType.Guid);
+        p.Add("@DedupKey",       input.DedupKey,       DbType.String, size: 200);
+        p.Add("@OrganizationId", input.OrganizationId, DbType.Guid);
+
+        var result = await db.QuerySingleAsync<BackgroundJobEnqueueResult>("dbo.usp_BackgroundJob_Enqueue", p, ct);
+        return result?.JobId;
     }
 
     public Task<IReadOnlyList<BackgroundJobRow>> PickUpPendingJobsAsync(int batchSize, CancellationToken ct = default)

@@ -76,6 +76,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBackgroundJobService, BackgroundJobService>();
         services.AddHostedService<BackgroundJobProcessor>();
 
+        // ── Scheduled (recurring) jobs ───────────────────────────────────────
+        services.AddScoped<IScheduledJobRepository, ScheduledJobRepository>();
+        if (configuration.GetSection("BackgroundJobs").Get<BackgroundJobOptions>()?.RunSchedulers ?? true)
+            services.AddHostedService<ScheduledJobProcessor>();
+
         services.AddScoped<IJobHandler, WelcomeEmailHandler>();
         services.AddScoped<IJobHandler, EmailConfirmationHandler>();
         services.AddScoped<IJobHandler, PasswordResetEmailHandler>();

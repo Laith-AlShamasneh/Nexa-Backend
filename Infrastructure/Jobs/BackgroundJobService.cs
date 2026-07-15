@@ -20,13 +20,17 @@ internal sealed class BackgroundJobService(
     {
         var input = new BackgroundJobEnqueueInput
         {
-            JobType     = jobType,
-            Payload     = JsonSerializer.Serialize(payload),
-            Priority    = priority,
-            ScheduledAt = scheduledAt ?? DateTime.UtcNow,
-            MaxAttempts = maxAttempts,
-            CreatedBy   = userContext.IsAuthenticated ? userContext.UserId : null,
-            DedupKey    = dedupKey
+            JobType        = jobType,
+            Payload        = JsonSerializer.Serialize(payload),
+            Priority       = priority,
+            ScheduledAt    = scheduledAt ?? DateTime.UtcNow,
+            MaxAttempts    = maxAttempts,
+            // IUserContext.UserId is still `long` (pending the documented long/Guid
+            // identity reconciliation — see docs/BACKGROUND_JOBS.md), so it cannot
+            // be mapped to the UNIQUEIDENTIFIER CreatedBy column yet.
+            CreatedBy      = null,
+            OrganizationId = userContext.IsAuthenticated ? userContext.OrganizationId : null,
+            DedupKey       = dedupKey
         };
         return repository.EnqueueAsync(input, ct);
     }
