@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using Application.Common.Extensions;
-using Infrastructure.Extensions;    
+using Infrastructure.Extensions;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.OpenApi;
 using Serilog;
 using WebApi.Common;
@@ -9,6 +10,23 @@ using WebApi.Common.Middlewares;
 using WebApi.Endpoints.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Uploads / large-file support ────────────────────────────────────────────────
+// A single ceiling shared by Kestrel and the multipart form parser, read once here
+// so both layers agree — a request Kestrel accepts but the form parser then rejects
+// (or vice versa) is a confusing, hard-to-diagnose mismatch. This is the platform
+// ceiling only; individual upload types (logo, profile picture, ...) enforce their
+// own tighter limits in FluentValidation (see Application.Common.Upload.UploadPolicies).
+var maxUploadSizeBytes = builder.Configuration.GetValue("Storage:MaxUploadSizeBytes", 200 * 1024 * 1024L);
+
+builder.WebHost.ConfigureKestrel(kestrel =>
+    kestrel.Limits.MaxRequestBodySize = maxUploadSizeBytes);
+
+builder.Services.Configure<FormOptions>(form =>
+{
+    form.MultipartBodyLengthLimit = maxUploadSizeBytes;
+    form.ValueLengthLimit = int.MaxValue;
+});
 
 // ── Serilog ───────────────────────────────────────────────────────────────────
 // Ported from MyMoney: reads the "Serilog" section (Console + MSSqlServer sinks —

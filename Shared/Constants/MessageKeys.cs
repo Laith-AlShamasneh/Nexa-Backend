@@ -96,6 +96,8 @@ public static class MessageKeys
         public const string OwnerEmailRequired        = "Tenancy.OwnerEmailRequired";
         public const string InvalidOwnerEmail         = "Tenancy.InvalidOwnerEmail";
         public const string PasswordMismatch          = "Tenancy.PasswordMismatch";
+        public const string InvalidLogoFormat         = "Tenancy.InvalidLogoFormat";
+        public const string LogoTooLarge              = "Tenancy.LogoTooLarge";
 
         // Business
         public const string RegistrationSucceeded      = "Tenancy.RegistrationSucceeded";

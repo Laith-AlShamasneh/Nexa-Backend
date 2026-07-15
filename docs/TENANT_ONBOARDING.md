@@ -12,13 +12,15 @@ POST /api/organizations/register
 
 No authentication required — this is the one endpoint that creates the tenant a JWT would otherwise scope requests to (see "Multi-tenant considerations" below). Rate-limited at 5 requests/minute per IP (`RateLimiterPolicies.PublicRegistration` in `WebApi/Program.cs`) since it is public and unauthenticated.
 
+**Content type: `multipart/form-data`**, not JSON — the request carries an optional logo file (`Logo`). Send every field as a form field; `Logo` as the file part. See "Logo upload" below for validation rules, and `WebApi/Endpoints/Tenancy/RegisterOrganizationFormRequest.cs` for the exact transport-layer shape (`IFormFile`), mapped into the Application request (`FileUpload`, transport-agnostic — see `docs/ARCHITECTURE_RULES.md`) before validation and the service call.
+
 ### Request fields
 
 | Field | Required | Notes |
 |---|---|---|
 | `OrganizationName` | Yes | |
 | `OrganizationArabicName`, `OrganizationLegalName`, `OrganizationArabicLegalName` | No | |
-| `LogoUrl` | No | A URL string, not a file upload — see "Current limitations" |
+| `Logo` | No | File upload (form part), not a URL — JPEG/PNG/WebP, max 5 MB (`UploadPolicies.OrganizationLogo`). Uploaded to disk and its resulting URL stored in `Organizations.LogoUrl` before the registration transaction runs. |
 | `OrganizationEmail`, `OrganizationPhone`, `OrganizationAddress` | No | |
 | `TimeZoneId` | Yes | Validated against the .NET/OS IANA time zone database |
 | `DefaultLanguageCode` | Yes | `xx` or `xx-YY` form, e.g. `ar-JO`, `en-US` |
@@ -61,16 +63,24 @@ Every handled outcome — success, validation failure, conflict — is returned 
 
 ## Workflow sequence
 
-1. **WebApi**: `ValidationFilter<RegisterOrganizationRequest>` (`WebApi/Common/Filters/ValidationFilter.cs`, applied via `.AddEndpointFilter<...>()`) runs `RegisterOrganizationValidator` (FluentValidation) before the handler executes. A failure short-circuits with `ApiResponse.Fail(400, ...)` wrapped in HTTP 200; the handler (`OrganizationEndpoints.RegisterAsync`) never even runs. This is a reusable, generic filter — any future endpoint gets request validation by adding one line, not by hand-rolling the check in every handler.
+1. **WebApi**: the endpoint binds `RegisterOrganizationFormRequest` from the multipart form (`[FromForm]`), then `.ToApplicationRequest()` maps it into `RegisterOrganizationRequest` (Application's transport-agnostic DTO — `Logo` becomes a `FileUpload`, wrapping `IFormFile.OpenReadStream()`). Validation then runs manually via `RequestValidator.ValidateAsync` (`WebApi/Common/Filters/ValidationFilter.cs`) against the *mapped* Application request — the generic `ValidationFilter<TRequest>` endpoint filter can't be used here because it inspects already-bound minimal-API arguments, and the bound argument is the WebApi form type, not the Application type the validator targets. A failure short-circuits with `ApiResponse.Fail(400, ...)` wrapped in HTTP 200; `TenantOnboardingService.RegisterAsync` never runs.
 2. **Application** (`TenantOnboardingService.RegisterAsync`):
    a. Builds Domain entities (`Organization.Create`, `Branch.Create`, `OrganizationSettings.CreateDefault` + `UpdateLocale`, `Person.Create`) — this runs each entity's own creation invariants as a second guard beyond FluentValidation, and generates the client-side `Guid.CreateVersion7()` IDs the whole tenant will use.
    b. Hashes the password (`IPasswordHasher.Hash`) and builds `User.Create` with the hash — **before** any database call.
    c. Generates a raw email-confirmation token and hashes it (`ITokenHasher.GenerateRawToken`/`Hash`) — also before the database call. The raw token exists only in memory from here until it's placed in the confirmation link.
-   d. Calls `IOrganizationRegistrationRepository.RegisterAsync` — one Dapper call to the stored procedure.
-   e. Maps the procedure's `ResultCode` to a `ServiceResult`.
-   f. On success, enqueues the confirmation email via the existing `IBackgroundJobService` + `EmailConfirmationPayload` + `JobTypes.EmailConfirmation` (all pre-existing, reused as-is — see "Reused vs. new" below).
+   d. If a `Logo` was provided, streams it to disk (`IFileService.UploadAsync`, atomic temp-file-then-rename — see `docs/BACKGROUND_JOBS.md`-adjacent storage notes below) and builds its public URL (`IStorageUtility.BuildFilePathWithExpiration`, `isInternalStorage: true`) **before** the database call, so `LogoUrl` is ready to pass into the stored procedure. On any registration failure past this point (slug conflict, missing role templates, unexpected exception), the uploaded file is deleted — no orphaned upload survives a failed registration.
+   e. Calls `IOrganizationRegistrationRepository.RegisterAsync` — one Dapper call to the stored procedure.
+   f. Maps the procedure's `ResultCode` to a `ServiceResult`.
+   g. On success, enqueues the confirmation email via the existing `IBackgroundJobService` + `EmailConfirmationPayload` + `JobTypes.EmailConfirmation` (all pre-existing, reused as-is — see "Reused vs. new" below).
 3. **Infrastructure** (`OrganizationRegistrationRepository`) executes `tenant.usp_Organization_Register` via `IDbExecutor`, `CommandType.StoredProcedure`, one round trip.
 4. **SQL Server** runs the entire write set in one transaction (see below) and returns one result row.
+
+## Logo upload
+
+- **Storage**: `LocalFileService` (`Infrastructure/Services/Storage`) streams the upload straight to a temp file in the destination folder (`wwwroot/uploads/organization-logos/`), then atomically renames it into place — a partially-written file is never visible at its final path, and a cancelled/failed upload leaves no corrupt file behind (only an orphaned `.tmp`, cleaned up in the same operation). Async, sequential-scan `FileStream` options and a configurable buffer (`Storage:CopyBufferSizeBytes`, default 1 MiB) keep this efficient for large files generally, not just small logos — the same service backs profile-picture uploads today and will back future large-attachment features (receipts, documents).
+- **Validation**: `UploadPolicies.OrganizationLogo` — JPEG/PNG/WebP only (no SVG: it can embed scripts and is an XSS vector if ever served inline), max 5 MB. Enforced by `RegisterOrganizationValidator` before the file ever reaches storage.
+- **Platform ceiling**: Kestrel's `MaxRequestBodySize` and the multipart form parser's `MultipartBodyLengthLimit` are both set from `Storage:MaxUploadSizeBytes` (default 200 MB) in `WebApi/Program.cs` — a generous ceiling for the storage layer generally. The per-file-type `UploadPolicy` caps (5 MB for logos) are the actual control for this endpoint; the platform ceiling exists so future large-file features (receipts, documents) don't need a Kestrel config change to work.
+- **`.DisableAntiforgery()`**: ASP.NET Core auto-attaches antiforgery requirements to any minimal-API endpoint bound from a form containing a file. This endpoint has no antiforgery middleware (it's a stateless, unauthenticated API — no ambient cookie session for CSRF to target; the rate limiter is the actual anti-abuse control), so it opts out explicitly. Discovered by live-testing, not by inspection — the endpoint throws `InvalidOperationException` on every request without this call.
 
 ## Transaction boundary
 
@@ -135,7 +145,6 @@ This endpoint is the **one documented exception** to "tenant context always come
 - **Confirm-email endpoint is not yet implemented** — the token is created and the link is sent, but there is no endpoint yet to consume it. Recommended next module (see below).
 - **Subscription billing is deferred** — `SubscriptionPlanCode` stays `NULL`; the organization starts in `Trial` status only.
 - **Advanced anti-abuse controls are deferred** — no CAPTCHA, no device fingerprinting, no email-domain verification. The 5-req/min-per-IP limit is a practical baseline for now.
-- **`LogoUrl` accepts a URL string, not a file upload** — pre-auth multipart upload wasn't built for this endpoint; a URL is stored as-is if provided.
 - **`CountryCode` was not added** — the finalized `tenant.Organizations` schema has no backing column for it; rather than invent an unreviewed column, it was left out of the request. `TimeZoneId`/`CurrencyCode` carry the equivalent locale information the schema actually supports.
 
 ## Next recommended module

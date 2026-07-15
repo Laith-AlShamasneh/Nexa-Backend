@@ -20,6 +20,8 @@ internal sealed class TenantOnboardingService(
     IPasswordHasher                     passwordHasher,
     ITokenHasher                         tokenHasher,
     IDateTimeProvider                   dateTimeProvider,
+    IFileService                        fileService,
+    IStorageUtility                     storageUtility,
     IUserContext                        userContext,
     IMessageProvider                    messageProvider,
     IBackgroundJobService                backgroundJobService,
@@ -79,6 +81,28 @@ internal sealed class TenantOnboardingService(
         var confirmationTokenHash = tokenHasher.Hash(rawConfirmationToken);
         var confirmationExpiresAt = dateTimeProvider.UtcNow.AddHours(authOptions.Value.EmailConfirmationExpiryHours);
 
+        // 2.5 Upload the logo, if provided, before the database round trip — same
+        //     ordering AuthService uses for ProfileImage. On any failure past this
+        //     point the uploaded file is orphaned unless explicitly cleaned up (see
+        //     the failure branches below and the catch block).
+        string? logoFileName = null;
+        string? logoUrl = null;
+        if (request.Logo is not null)
+        {
+            var ext = Path.GetExtension(request.Logo.FileName);
+            logoFileName = $"{Guid.NewGuid()}{ext}";
+            var fileKey = storageUtility.BuildFileKey(FolderPaths.OrganizationLogos, logoFileName);
+
+            await using (var stream = request.Logo.Content)
+                await fileService.UploadAsync(stream, fileKey, request.Logo.ContentType, ct, request.Logo.Length);
+
+            (logoUrl, _) = storageUtility.BuildFilePathWithExpiration(
+                FolderPaths.OrganizationLogos,
+                logoFileName,
+                isInternalStorage: true,
+                baseUrl: userContext.RequestBaseUrl);
+        }
+
         // 3. One atomic call — see tenant.usp_Organization_Register (migration 011).
         var dbInput = new RegisterOrganizationDbInput
         {
@@ -88,7 +112,7 @@ internal sealed class TenantOnboardingService(
             OrganizationLegalName       = organization.LegalName,
             OrganizationArabicLegalName = organization.ArabicLegalName,
             Slug                        = organization.Slug,
-            LogoUrl                     = request.LogoUrl,
+            LogoUrl                     = logoUrl,
             OrganizationEmail           = request.OrganizationEmail,
             OrganizationPhone           = request.OrganizationPhone,
             OrganizationAddress         = request.OrganizationAddress,
@@ -139,6 +163,7 @@ internal sealed class TenantOnboardingService(
             logger.LogError(ex,
                 "Tenant registration failed unexpectedly for slug {Slug}, correlation {CorrelationId}.",
                 organization.Slug, userContext.TraceId);
+            await DeleteLogoIfUploadedAsync(logoFileName, ct);
             throw;
         }
 
@@ -147,6 +172,7 @@ internal sealed class TenantOnboardingService(
             case 1:
                 logger.LogWarning(
                     "Tenant registration conflict (slug already in use) for slug {Slug}.", organization.Slug);
+                await DeleteLogoIfUploadedAsync(logoFileName, ct);
                 return ServiceResultFactory.Failure<RegisterOrganizationResponse>(
                     InternalResponseCodes.Conflict,
                     await messageProvider.GetMessagesAsync(MessageKeys.Tenancy.RegistrationFailed, ct),
@@ -158,6 +184,7 @@ internal sealed class TenantOnboardingService(
                 logger.LogCritical(
                     "Tenant registration blocked: required global role templates are missing from identity.Roles. " +
                     "Re-run Database/Migrations/008_Seed_GlobalData.sql.");
+                await DeleteLogoIfUploadedAsync(logoFileName, ct);
                 return ServiceResultFactory.Failure<RegisterOrganizationResponse>(
                     InternalResponseCodes.InternalServerError,
                     await messageProvider.GetMessagesAsync(MessageKeys.Tenancy.RegistrationFailed, ct),
@@ -167,6 +194,7 @@ internal sealed class TenantOnboardingService(
                 break;
 
             default:
+                await DeleteLogoIfUploadedAsync(logoFileName, ct);
                 logger.LogError("Tenant registration returned unrecognized ResultCode {ResultCode}.", dbResult.ResultCode);
                 return ServiceResultFactory.Failure<RegisterOrganizationResponse>(
                     InternalResponseCodes.InternalServerError,
@@ -228,4 +256,10 @@ internal sealed class TenantOnboardingService(
 
     private static Guid? TryParseCorrelationId(string? traceId) =>
         Guid.TryParse(traceId, out var id) ? id : null;
+
+    private async Task DeleteLogoIfUploadedAsync(string? logoFileName, CancellationToken ct)
+    {
+        if (logoFileName is null) return;
+        await fileService.DeleteAsync(storageUtility.BuildFileKey(FolderPaths.OrganizationLogos, logoFileName), ct);
+    }
 }

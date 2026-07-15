@@ -56,7 +56,7 @@ internal sealed class AuthService(
             profilePictureFileName = $"{Guid.NewGuid()}{ext}";
             var fileKey = storageUtility.BuildFileKey(FolderPaths.ProfilePictures, profilePictureFileName);
             await using var stream = request.ProfileImage.Content;
-            await fileService.UploadAsync(stream, fileKey, request.ProfileImage.ContentType, ct);
+            await fileService.UploadAsync(stream, fileKey, request.ProfileImage.ContentType, ct, request.ProfileImage.Length);
         }
 
         // 3. Persist Person + User + UserRole atomically

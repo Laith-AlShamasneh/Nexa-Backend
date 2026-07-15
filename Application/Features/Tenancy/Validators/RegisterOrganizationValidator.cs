@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Application.Common.Upload;
 using Application.Features.Tenancy.DTOs;
 using Domain.Identity.Constants;
 using Domain.Tenancy.Constants;
@@ -37,9 +38,23 @@ public sealed partial class RegisterOrganizationValidator : AbstractValidator<Re
             .MaximumLength(TenancyLengths.Organization.AddressMaxLength)
             .When(x => !string.IsNullOrEmpty(x.OrganizationAddress));
 
-        RuleFor(x => x.LogoUrl)
-            .MaximumLength(TenancyLengths.Organization.LogoUrlMaxLength)
-            .When(x => !string.IsNullOrEmpty(x.LogoUrl));
+        RuleFor(x => x.Logo)
+            .Must(f =>
+            {
+                var policy = UploadPolicies.OrganizationLogo;
+                var ext    = Path.GetExtension(f!.FileName);
+                return policy.AllowedMimeTypes.Contains(f.ContentType, StringComparer.OrdinalIgnoreCase)
+                    && policy.AllowedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase);
+            })
+            .WithMessage(MessageKeys.Tenancy.InvalidLogoFormat)
+            .When(x => x.Logo is not null)
+            .DependentRules(() =>
+            {
+                RuleFor(x => x.Logo)
+                    .Must(f => f!.Length <= UploadPolicies.OrganizationLogo.MaxSizeBytes)
+                    .WithMessage(MessageKeys.Tenancy.LogoTooLarge)
+                    .When(x => x.Logo is not null);
+            });
 
         // ── Organization settings ────────────────────────────────────────────
         RuleFor(x => x.TimeZoneId)

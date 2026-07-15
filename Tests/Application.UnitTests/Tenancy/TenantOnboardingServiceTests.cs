@@ -61,6 +61,9 @@ public sealed class TenantOnboardingServiceTests
 
         var jobs = new Mock<IBackgroundJobService>();
 
+        var fileService = new Mock<IFileService>();
+        var storageUtility = new Mock<IStorageUtility>();
+
         var authOptions = Options.Create(new AuthenticationOptions
         {
             EmailConfirmationExpiryHours = 24,
@@ -72,6 +75,8 @@ public sealed class TenantOnboardingServiceTests
             passwordHasher.Object,
             tokenHasher.Object,
             dateTimeProvider.Object,
+            fileService.Object,
+            storageUtility.Object,
             userContext.Object,
             messageProvider.Object,
             jobs.Object,

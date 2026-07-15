@@ -1,3 +1,5 @@
+using Application.Common.Upload;
+
 namespace Application.Features.Tenancy.DTOs;
 
 /// <summary>
@@ -7,19 +9,20 @@ namespace Application.Features.Tenancy.DTOs;
 /// "Request Contract" for the full list and why. The tenant Slug is also not accepted
 /// from the client; it is derived from <see cref="OrganizationName"/> internally
 /// (see <c>SlugGenerator</c>) since the client shouldn't need to know this identifier
-/// exists.
+/// exists. Submitted as <c>multipart/form-data</c> (not JSON) because of
+/// <see cref="Logo"/> — see WebApi/Endpoints/Tenancy/RegisterOrganizationFormRequest.
 /// </summary>
 public sealed class RegisterOrganizationRequest
 {
     // Organization
-    public string  OrganizationName            { get; set; } = string.Empty;
-    public string? OrganizationArabicName       { get; set; }
-    public string? OrganizationLegalName        { get; set; }
-    public string? OrganizationArabicLegalName  { get; set; }
-    public string? LogoUrl                      { get; set; }
-    public string? OrganizationEmail            { get; set; }
-    public string? OrganizationPhone            { get; set; }
-    public string? OrganizationAddress          { get; set; }
+    public string      OrganizationName            { get; set; } = string.Empty;
+    public string?     OrganizationArabicName      { get; set; }
+    public string?     OrganizationLegalName       { get; set; }
+    public string?     OrganizationArabicLegalName { get; set; }
+    public FileUpload? Logo                        { get; set; }
+    public string?     OrganizationEmail           { get; set; }
+    public string?     OrganizationPhone           { get; set; }
+    public string?     OrganizationAddress         { get; set; }
 
     // Organization settings
     public string TimeZoneId           { get; set; } = string.Empty;
