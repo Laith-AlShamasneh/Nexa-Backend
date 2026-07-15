@@ -17,14 +17,19 @@ var builder = WebApplication.CreateBuilder(args);
 // (or vice versa) is a confusing, hard-to-diagnose mismatch. This is the platform
 // ceiling only; individual upload types (logo, profile picture, ...) enforce their
 // own tighter limits in FluentValidation (see Application.Common.Upload.UploadPolicies).
-var maxUploadSizeBytes = builder.Configuration.GetValue("Storage:MaxUploadSizeBytes", 200 * 1024 * 1024L);
+//
+// "Storage:MaxUploadSizeBytes" unset, zero, or negative means unlimited — Kestrel's
+// MaxRequestBodySize accepts null for "no limit"; FormOptions has no such sentinel,
+// so long.MaxValue stands in for it there.
+var configuredUploadLimit = builder.Configuration.GetValue<long?>("Storage:MaxUploadSizeBytes");
+var maxUploadSizeBytes = configuredUploadLimit is > 0 ? configuredUploadLimit : null;
 
 builder.WebHost.ConfigureKestrel(kestrel =>
     kestrel.Limits.MaxRequestBodySize = maxUploadSizeBytes);
 
 builder.Services.Configure<FormOptions>(form =>
 {
-    form.MultipartBodyLengthLimit = maxUploadSizeBytes;
+    form.MultipartBodyLengthLimit = maxUploadSizeBytes ?? long.MaxValue;
     form.ValueLengthLimit = int.MaxValue;
 });
 

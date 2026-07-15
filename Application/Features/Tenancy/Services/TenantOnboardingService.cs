@@ -241,6 +241,7 @@ internal sealed class TenantOnboardingService(
             OwnerUserId: dbResult.OwnerUserId!.Value,
             OwnerEmail: user.Email,
             EmailConfirmationRequired: true,
+            LogoUrl: logoUrl,
             CreatedAt: dbResult.CreatedAt!.Value);
 
         return ServiceResultFactory.Success(

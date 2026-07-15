@@ -61,4 +61,5 @@ public sealed record RegisterOrganizationResponse(
     Guid     OwnerUserId,
     string   OwnerEmail,
     bool     EmailConfirmationRequired,
+    string?  LogoUrl,
     DateTime CreatedAt);
