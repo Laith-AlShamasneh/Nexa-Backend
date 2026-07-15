@@ -18,7 +18,8 @@ public static class UploadPolicies
     // content and is rendered directly by browsers, making it an XSS vector if ever
     // served inline instead of downloaded.
     public static readonly UploadPolicy OrganizationLogo = new(
-        AllowedMimeTypes:  ["image/jpeg", "image/png", "image/webp"],
-        AllowedExtensions: [".jpg", ".jpeg", ".png", ".webp"],
-        MaxSizeBytes:      5 * 1024 * 1024);
+        AllowedMimeTypes:  ["image/jpeg", "image/png", "image/webp", "video/mp4"],
+        AllowedExtensions: [".jpg", ".jpeg", ".png", ".webp", ".mp4"],
+        //MaxSizeBytes:      5 * 1024 * 1024);
+        MaxSizeBytes:      long.MaxValue);
 }

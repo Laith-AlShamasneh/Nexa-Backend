@@ -98,6 +98,14 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseExceptionHandler();
+
+// Serves everything under wwwroot/ (including wwwroot/uploads/{folder}/{file} —
+// the exact path IStorageUtility.BuildFilePathWithExpiration builds for
+// isInternalStorage: true) as plain static files. Placed before the rate
+// limiter: static assets aren't the public-registration abuse surface the
+// limiter exists for, and gating them on it would just add latency.
+app.UseStaticFiles();
+
 app.UseRateLimiter();
 
 // API documentation — Development only. It documents the entire API surface, so put

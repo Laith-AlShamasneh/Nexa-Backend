@@ -38,6 +38,13 @@ bld/
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
 
+# User-uploaded content (logos, profile pictures, ...) — runtime data written by
+# LocalFileService at wwwroot/uploads/, never source. Committing it risks exactly
+# what happened once already: a large test upload blocking a push (GitHub rejects
+# any file over 100 MB). wwwroot/resources/ (system-messages.json, system-labels.json)
+# is real source and stays tracked — this only excludes the uploads subfolder.
+WebApi/wwwroot/uploads/
+
 # Visual Studio 2017 auto generated files
 Generated\ Files/
 
