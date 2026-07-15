@@ -4,7 +4,7 @@ A multi-tenant SaaS platform for education institutes, training centers, and lan
 
 ## Current development status
 
-**Phase 0 (solution cleanup and foundation) is complete.** The solution builds cleanly and `WebApi` starts and serves `/health` + `/openapi/v1.json`. There are **no real business API endpoints yet** — see [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md) for what's next (Phase 1: Platform Foundation, then Phase 2: Tenant Onboarding).
+**Phase 0 (solution cleanup and foundation) is complete**, and Tenant Onboarding (`POST /api/organizations/register`) is implemented end-to-end. `WebApi` starts and serves `/health` and interactive API docs at `/swagger` (Development only). See [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md) for what's next.
 
 A substantial amount of generic authentication/notification/background-job/onboarding infrastructure was inherited from an earlier project and kept because it's genuinely reusable — but none of it is yet connected to a real database (no stored procedures exist for it) or a real HTTP endpoint. See [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) for a precise "implemented vs. planned" breakdown before relying on anything described here.
 
@@ -69,8 +69,10 @@ Numbered SQL scripts under [`Database/Migrations/`](Database/Migrations), applie
 8. `008_Seed_GlobalData.sql` — global permission catalog + system role templates
 9. `009_Harden_MultiTenant_Identity.sql` — composite tenant-safe foreign keys, `OrganizationSettings`, `UserSessions`, `UserInvitations`, tenant-local role materialization
 10. `010_Bilingual_Name_Fields.sql` — Arabic counterpart columns for every English name field (Organizations, Branches, Persons, Roles, Permissions, Customers)
+11. `011_Tenant_Onboarding.sql` — `tenant.usp_Organization_Register`, the single-transaction "register a new organization" procedure
+12. `012_BackgroundJobs_And_Scheduling.sql` — `dbo.BackgroundJobs` (work queue) and `dbo.ScheduledJobs` (recurring-job definitions) tables and stored procedures. See [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md).
 
-All 10 migrations have been applied to the `Nexa` database on `localhost\SQLEXPRESS`. Full schema design and rationale: [docs/database/DATABASE_FINAL_BLUEPRINT.md](docs/database/DATABASE_FINAL_BLUEPRINT.md); Domain-layer mapping: [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md).
+All 12 migrations have been applied to the `Nexa` database on `localhost\SQLEXPRESS`. Full schema design and rationale: [docs/database/DATABASE_FINAL_BLUEPRINT.md](docs/database/DATABASE_FINAL_BLUEPRINT.md); Domain-layer mapping: [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md).
 
 ## Documentation index
 
@@ -81,13 +83,16 @@ All 10 migrations have been applied to the `Nexa` database on `localhost\SQLEXPR
 - [docs/MULTI_TENANCY.md](docs/MULTI_TENANCY.md) — tenant isolation model in full
 - [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) — implemented vs. planned security posture
 - [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md) — phased implementation plan
+- [docs/TENANT_ONBOARDING.md](docs/TENANT_ONBOARDING.md) — the organization-registration workflow, end to end
+- [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) — background-job queue and scheduled-job (recurring) database design
+- [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md) — entity classification, tenant ownership, Dapper materialization strategy
 - [docs/database/DATABASE_FINAL_BLUEPRINT.md](docs/database/DATABASE_FINAL_BLUEPRINT.md) — full database design
 - [PRODUCT_CONTEXT.md](PRODUCT_CONTEXT.md) — product vision and business context
 
 ## Current limitations
 
-- No real API endpoints exist yet (only `/health` and `/openapi/v1.json`).
-- No stored procedures exist yet for Authentication, Notifications, Onboarding, or BackgroundJobs — the C# repositories reference SP names that must still be written.
+- Only one real business endpoint exists so far: `POST /api/organizations/register` (Tenant Onboarding — see [docs/TENANT_ONBOARDING.md](docs/TENANT_ONBOARDING.md)). Everything else is `/health` and `/swagger`.
+- No stored procedures exist yet for Authentication or Notifications — the C# repositories reference SP names that must still be written. BackgroundJobs' stored procedures now exist (migration 012); the repository has not yet been exercised end-to-end against them, and there is no `ScheduledJobs` repository/hosted-service yet at all — see [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md).
 - `IUserContext.UserId` and the Authentication DB models use `long` IDs, while the finalized database design uses `Guid` (`UNIQUEIDENTIFIER`) for `Users.Id` — this mismatch needs reconciling before the Identity phase ships (see the Phase 0 cleanup report / remaining risks).
 - Row-Level Security (the planned third layer of tenant-isolation defense) is not yet implemented.
 - No automated tests exist yet.

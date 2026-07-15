@@ -6,7 +6,7 @@
 - Fixed project references and Clean Architecture violations (Dapper types and `IFormFile` had leaked into `Application`).
 - Rewired DI composition (`AddApplication()`, `AddInfrastructure()`) and `WebApi/Program.cs` (health check, OpenAPI, global exception handler).
 - Established the conventions and rules recorded in this `/docs` folder.
-- Solution builds with zero errors/warnings; `WebApi` starts and serves `/health` and `/openapi/v1.json`.
+- Solution builds with zero errors/warnings; `WebApi` starts and serves `/health` and interactive API docs at `/swagger` (Development only).
 
 ## Phase 1 — Platform Foundation
 
@@ -119,4 +119,6 @@
 
 ## A note on "exists" vs. "done"
 
-Several building blocks from the previous (finance-app) codebase were generic enough to keep — a full authentication service, a background-job engine, a notification engine, an onboarding-wizard engine, email/storage/caching infrastructure. These are real, compiling code, not stubs. But **none of it is connected to a running database or a real HTTP endpoint yet** (Phase 0 deliberately stopped short of that — see the cleanup report). Phases 1–3 above are largely about connecting existing scaffolding to real stored procedures and real endpoints, not writing everything from scratch.
+Several building blocks from the previous (finance-app) codebase were generic enough to keep — a full authentication service, a background-job engine, a notification engine, an onboarding-wizard engine, email/storage/caching infrastructure. These are real, compiling code, not stubs. But **most of it is still not connected to a running database or a real HTTP endpoint** (Phase 0 deliberately stopped short of that — see the cleanup report). Phases 1–3 above are largely about connecting existing scaffolding to real stored procedures and real endpoints, not writing everything from scratch.
+
+**Exception**: `dbo.BackgroundJobs`' stored procedures now exist (migration 012, see [docs/BACKGROUND_JOBS.md](BACKGROUND_JOBS.md)) and match `BackgroundJobRepository.cs`'s expected signatures exactly — the database side of the background-job engine is real, not just scaffolding. It has not yet been exercised end-to-end from a running WebApi instance. A new `dbo.ScheduledJobs` table/procedures also exist for recurring jobs (a genuine enhancement over the old codebase, which had no such concept) but have no C# repository/hosted-service yet.

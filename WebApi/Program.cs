@@ -1,7 +1,7 @@
 using System.Threading.RateLimiting;
 using Application.Common.Extensions;
-using Infrastructure.Extensions;
-using Microsoft.AspNetCore.RateLimiting;
+using Infrastructure.Extensions;    
+using Microsoft.OpenApi;
 using Serilog;
 using WebApi.Common;
 using WebApi.Common.Exceptions;
@@ -24,7 +24,27 @@ builder.Host.UseSerilog();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddOpenApi();
+// Swagger / OpenAPI — UI only mapped in Development below (see the rationale there
+// before exposing it elsewhere).
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Nexa API", Version = "v1" });
+
+    // "Authorize" button: paste a JWT to send it as the Bearer header on calls.
+    // No endpoint requires it yet (Phase 3 — Identity and Authentication), but the
+    // scheme is wired up now so it's ready the moment one does.
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Paste the JWT access token (without the 'Bearer ' prefix)."
+    });
+});
+
 builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -57,9 +77,12 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
 app.UseRateLimiter();
 
+// API documentation — Development only. It documents the entire API surface, so put
+// it behind authorization first before enabling it in another environment.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 // No authentication middleware exists yet (Phase 3 — Identity and Authentication).
