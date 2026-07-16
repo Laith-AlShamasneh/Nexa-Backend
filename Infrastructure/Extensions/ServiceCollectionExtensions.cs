@@ -12,6 +12,7 @@ using Infrastructure.Services.Authentication.Options;
 using Infrastructure.Services.Caching;
 using Infrastructure.Services.Email;
 using Infrastructure.Services.Email.Options;
+using Infrastructure.Services.EmailConfirmation;
 using Infrastructure.Services.Localization;
 using Infrastructure.Services.Notifications;
 using Infrastructure.Services.Onboarding;
@@ -36,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.Configure<EmailBrandingOptions>(configuration.GetSection("Email:Branding"));
         services.Configure<StorageOptions>(configuration.GetSection("Storage"));
         services.Configure<BackgroundJobOptions>(configuration.GetSection("BackgroundJobs"));
+        services.Configure<EmailConfirmationOptions>(configuration.GetSection("EmailConfirmation"));
 
         // ── Database ─────────────────────────────────────────────────────────
         services.AddScoped<ISqlConnectionFactory, SqlConnectionFactory>();
@@ -55,6 +57,9 @@ public static class ServiceCollectionExtensions
         // ── Email ─────────────────────────────────────────────────────────────
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+
+        // ── Email confirmation ───────────────────────────────────────────────
+        services.AddScoped<IEmailConfirmationRepository, EmailConfirmationRepository>();
 
         // ── Storage ───────────────────────────────────────────────────────────
         services.AddScoped<IFileService, LocalFileService>();

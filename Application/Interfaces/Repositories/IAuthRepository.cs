@@ -15,9 +15,11 @@ public interface IAuthRepository
     Task<LoginDbResult?>    GetByEmailForLoginAsync(string email, CancellationToken ct = default);
     Task                    UpdateLoginAsync(LoginUpdateDbModel model, CancellationToken ct = default);
 
-    Task                                     SaveConfirmationTokenAsync(SaveConfirmationTokenDbInput input, CancellationToken ct = default);
-    Task<ConfirmEmailDbResult>               ConfirmEmailAsync(ConfirmEmailDbInput input, CancellationToken ct = default);
-    Task<UserConfirmationStatusDbResult?>    GetUserConfirmationStatusAsync(string email, CancellationToken ct = default);
+    // Used only by AuthService.RegisterAsync (out of scope for the Email Confirmation
+    // module — see docs/EMAIL_CONFIRMATION.md "Relationship to AuthService"). Confirm
+    // and resend for the real, wired-up registration flow (Tenant Onboarding) go
+    // through IEmailConfirmationService instead.
+    Task SaveConfirmationTokenAsync(SaveConfirmationTokenDbInput input, CancellationToken ct = default);
 
     Task<ChangePasswordUserDbResult?> GetUserForChangePasswordAsync(long userId, CancellationToken ct = default);
     Task<ChangePasswordDbResult>      ChangePasswordAsync(ChangePasswordDbInput input, CancellationToken ct = default);

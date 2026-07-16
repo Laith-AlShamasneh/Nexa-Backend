@@ -90,27 +90,6 @@ internal sealed class AuthRepository(IDbExecutor db) : IAuthRepository
         await db.ExecuteAsync("identity.usp_Authentication_SaveConfirmationToken", p, ct);
     }
 
-    public async Task<ConfirmEmailDbResult> ConfirmEmailAsync(ConfirmEmailDbInput input, CancellationToken ct = default)
-    {
-        var p = new DynamicParameters();
-        p.Add("@TokenHash", input.TokenHash, DbType.String);
-        p.Add("@UsedByIp",  input.UsedByIp,  DbType.String);
-
-        return await db.QuerySingleAsync<ConfirmEmailDbResult>(
-            "identity.usp_Authentication_ConfirmEmail", p, ct)
-            ?? new ConfirmEmailDbResult { ResultCode = 1 };
-    }
-
-    public async Task<UserConfirmationStatusDbResult?> GetUserConfirmationStatusAsync(
-        string email, CancellationToken ct = default)
-    {
-        var p = new DynamicParameters();
-        p.Add("@Email", email, DbType.String);
-
-        return await db.QuerySingleAsync<UserConfirmationStatusDbResult>(
-            "identity.usp_Authentication_GetUserConfirmationStatus", p, ct);
-    }
-
     public async Task<ChangePasswordUserDbResult?> GetUserForChangePasswordAsync(
         long userId, CancellationToken ct = default)
     {

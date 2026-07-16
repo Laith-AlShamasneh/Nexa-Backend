@@ -1,8 +1,8 @@
-using Application.Features.Authentication.DTOs;
+using Application.Features.EmailConfirmation.DTOs;
 using FluentValidation;
 using Shared.Constants;
 
-namespace Application.Features.Authentication.Validators;
+namespace Application.Features.EmailConfirmation.Validators;
 
 public sealed class ConfirmEmailValidator : AbstractValidator<ConfirmEmailRequest>
 {

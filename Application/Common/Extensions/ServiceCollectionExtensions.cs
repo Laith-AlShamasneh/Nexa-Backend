@@ -1,4 +1,5 @@
 using Application.Features.Authentication.Services;
+using Application.Features.EmailConfirmation.Services;
 using Application.Features.Notifications;
 using Application.Features.Notifications.Services;
 using Application.Features.Onboarding.Services;
@@ -18,6 +19,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<INotificationPublisher, NotificationPublisher>();
         services.AddScoped<ITenantOnboardingService, TenantOnboardingService>();
+        services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
 
         services.AddValidatorsFromAssemblyContaining(typeof(ServiceCollectionExtensions));
 

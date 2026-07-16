@@ -4,7 +4,7 @@ A multi-tenant SaaS platform for education institutes, training centers, and lan
 
 ## Current development status
 
-**Phase 0 (solution cleanup and foundation) is complete**, and Tenant Onboarding (`POST /api/organizations/register`) is implemented end-to-end. `WebApi` starts and serves `/health` and interactive API docs at `/swagger` (Development only). See [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md) for what's next.
+**Phase 0 (solution cleanup and foundation) is complete.** Tenant Onboarding (`POST /api/organizations/register`) and Email Confirmation (`POST /api/auth/confirm-email`, `POST /api/auth/resend-email-confirmation` — see [docs/EMAIL_CONFIRMATION.md](docs/EMAIL_CONFIRMATION.md)) are both implemented end-to-end and verified live, including a genuine concurrent-request race test for confirm-email. `WebApi` starts and serves `/health` and interactive API docs at `/swagger` (Development only). See [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md) for what's next — **Login is the recommended next module.**
 
 A substantial amount of generic authentication/notification/background-job/onboarding infrastructure was inherited from an earlier project and kept because it's genuinely reusable — but none of it is yet connected to a real database (no stored procedures exist for it) or a real HTTP endpoint. See [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) for a precise "implemented vs. planned" breakdown before relying on anything described here.
 
@@ -71,8 +71,9 @@ Numbered SQL scripts under [`Database/Migrations/`](Database/Migrations), applie
 10. `010_Bilingual_Name_Fields.sql` — Arabic counterpart columns for every English name field (Organizations, Branches, Persons, Roles, Permissions, Customers)
 11. `011_Tenant_Onboarding.sql` — `tenant.usp_Organization_Register`, the single-transaction "register a new organization" procedure
 12. `012_BackgroundJobs_And_Scheduling.sql` — `dbo.BackgroundJobs` (work queue) and `dbo.ScheduledJobs` (recurring-job definitions) tables and stored procedures. See [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md).
+13. `013_Email_Confirmation.sql` — `identity.usp_EmailConfirmation_Confirm`/`_Resend` (no schema changes needed — migrations 003/005/009 already had every column). See [docs/EMAIL_CONFIRMATION.md](docs/EMAIL_CONFIRMATION.md).
 
-All 12 migrations have been applied to the `Nexa` database on `localhost\SQLEXPRESS`. Full schema design and rationale: [docs/database/DATABASE_FINAL_BLUEPRINT.md](docs/database/DATABASE_FINAL_BLUEPRINT.md); Domain-layer mapping: [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md).
+All 13 migrations have been applied to the `Nexa` database on `localhost\SQLEXPRESS`. Full schema design and rationale: [docs/database/DATABASE_FINAL_BLUEPRINT.md](docs/database/DATABASE_FINAL_BLUEPRINT.md); Domain-layer mapping: [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md).
 
 ## Documentation index
 
@@ -84,6 +85,7 @@ All 12 migrations have been applied to the `Nexa` database on `localhost\SQLEXPR
 - [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) — implemented vs. planned security posture
 - [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md) — phased implementation plan
 - [docs/TENANT_ONBOARDING.md](docs/TENANT_ONBOARDING.md) — the organization-registration workflow, end to end
+- [docs/EMAIL_CONFIRMATION.md](docs/EMAIL_CONFIRMATION.md) — confirm/resend email-confirmation workflow, end to end
 - [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) — background-job queue and scheduled-job (recurring) database design
 - [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) — reusable email template system (base layout, design system, RTL/LTR, how to add a template)
 - [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md) — entity classification, tenant ownership, Dapper materialization strategy
@@ -92,13 +94,13 @@ All 12 migrations have been applied to the `Nexa` database on `localhost\SQLEXPR
 
 ## Current limitations
 
-- Only one real business endpoint exists so far: `POST /api/organizations/register` (Tenant Onboarding — see [docs/TENANT_ONBOARDING.md](docs/TENANT_ONBOARDING.md)). Everything else is `/health` and `/swagger`.
-- No stored procedures exist yet for Authentication or Notifications — the C# repositories reference SP names that must still be written. BackgroundJobs and the new ScheduledJobs (recurring jobs) are fully wired end-to-end (database, Application, Infrastructure, hosted services) and verified live — see [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md).
+- Three real business endpoints exist so far: `POST /api/organizations/register` (Tenant Onboarding), `POST /api/auth/confirm-email`, `POST /api/auth/resend-email-confirmation` (Email Confirmation — see [docs/EMAIL_CONFIRMATION.md](docs/EMAIL_CONFIRMATION.md)). Everything else is `/health` and `/swagger`.
+- No stored procedures exist yet for Login/Refresh/Logout/Forgot-Password/Reset-Password or Notifications — the C# repositories reference SP names that must still be written (`AuthService.RegisterAsync` in particular calls `identity.usp_Authentication_SaveConfirmationToken`, which doesn't exist — a separate, currently-unwired flow out of scope for the Email Confirmation module; see [docs/EMAIL_CONFIRMATION.md](docs/EMAIL_CONFIRMATION.md) "Relationship to AuthService"). BackgroundJobs, ScheduledJobs, and Email Confirmation are fully wired end-to-end (database, Application, Infrastructure, WebApi) and verified live.
 - The email template system (`WebApi/EmailTemplates/`) only has one fully-built template so far — **Email Confirmation**. The other six job handlers that already call `IEmailTemplateService.RenderAsync` (`WelcomeEmail`, `PasswordResetEmail`, `PasswordChangedEmail`, `EmailChangeRequested`, `EmailChanged`, `OrganizationInvitationEmail`) will still throw `FileNotFoundException` at runtime until their own template files are authored — the shared base layout and file convention are ready for them; see [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) "How to add a new template". `Smtp:*` is also still unconfigured (empty placeholders), so no real email actually sends yet regardless.
-- `IUserContext.UserId` and the Authentication DB models use `long` IDs, while the finalized database design uses `Guid` (`UNIQUEIDENTIFIER`) for `Users.Id` — this mismatch needs reconciling before the Identity phase ships (see the Phase 0 cleanup report / remaining risks).
+- `IUserContext.UserId` and the (unrelated, out-of-scope) Login/Register Authentication DB models use `long` IDs, while the finalized database design uses `Guid` (`UNIQUEIDENTIFIER`) for `Users.Id` — this mismatch needs reconciling before the Login phase ships. Email Confirmation is unaffected — it's built entirely against the real `Guid`-keyed schema.
 - Row-Level Security (the planned third layer of tenant-isolation defense) is not yet implemented.
-- No automated tests exist yet.
+- 23 unit tests exist (`Tests/Application.UnitTests`, xUnit + Moq) covering Tenant Onboarding and Email Confirmation's Application-layer logic. No dedicated SQL-Server-backed integration test project exists yet — verification of stored-procedure behavior (including concurrency) has so far been done via direct `sqlcmd` execution against a real database, documented in each feature's own doc.
 
 ## Next implementation phase
 
-**Phase 1 — Platform Foundation**, followed by **Phase 2 — Tenant Onboarding** (see [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md)). Do not begin CRM/Billing/Attendance feature work before these land.
+**Login and Sign-In Security** (Phase 3 — see [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md)) — the next piece a confirmed user needs. Do not begin CRM/Billing/Attendance feature work before Identity/Authentication lands.

@@ -15,9 +15,16 @@ Every tenant (an "Organization" — see [PRODUCT_CONTEXT.md](../PRODUCT_CONTEXT.
 3. `Infrastructure/Services/Authentication/UserContext.cs` (implementing `Application.Interfaces.Services.IUserContext`) reads `org_id` from the authenticated `ClaimsPrincipal` and exposes it as `Guid? OrganizationId`.
 4. Application services and Infrastructure repositories read `IUserContext.OrganizationId` — they never re-derive it from anywhere else.
 
-## Pre-authentication tenant creation (the one documented exception)
+## Pre-authentication endpoints (the documented exceptions)
 
-`POST /api/organizations/register` (Tenant Onboarding — see [docs/TENANT_ONBOARDING.md](TENANT_ONBOARDING.md)) is the **single exception** to "tenant context always comes from the authenticated JWT." There is no tenant yet at this point, so there is no `org_id` claim to read — the endpoint's entire job is to create the tenant a future JWT would reference.
+Three endpoints are documented exceptions to "tenant context always comes from the
+authenticated JWT" — there is no JWT yet for a user who hasn't registered
+(`POST /api/organizations/register`) or hasn't confirmed their email yet
+(`POST /api/auth/confirm-email`, `POST /api/auth/resend-email-confirmation`):
+
+### Tenant creation — `POST /api/organizations/register`
+
+(Tenant Onboarding — see [docs/TENANT_ONBOARDING.md](TENANT_ONBOARDING.md).) There is no tenant yet at this point, so there is no `org_id` claim to read — the endpoint's entire job is to create the tenant a future JWT would reference.
 
 How the exception stays safe:
 
@@ -25,7 +32,18 @@ How the exception stays safe:
 - **Every row the registration writes uses that one generated value.** `tenant.usp_Organization_Register` (migration 011) takes `@OrganizationId` as a single input parameter and every INSERT — Organizations, Branches, OrganizationSettings, Persons, Users, cloned Roles, cloned RolePermissions, UserRoles, EmailConfirmationTokens, AuditLogs — uses that same parameter. There is no path in the procedure where a row could be written against a different `OrganizationId`.
 - **Role-template cloning reads global data only.** The only rows this workflow reads *outside* the new tenant are the four system role templates and their permissions (`identity.Roles`/`RolePermissions` where `OrganizationId IS NULL`) — both intentionally global and read-only from every tenant's perspective, not another tenant's private data.
 - **The transaction is atomic.** See [docs/TENANT_ONBOARDING.md](TENANT_ONBOARDING.md) "Transaction boundary" — a failure partway through leaves no partial tenant behind for a subsequent request to accidentally attach to.
-- **No endpoint after this one accepts a client-supplied `OrganizationId` either** — this exception is scoped to the one operation that creates a tenant, not a general precedent for trusting client-supplied tenant IDs anywhere else in the platform.
+
+### Email confirmation — `POST /api/auth/confirm-email`, `POST /api/auth/resend-email-confirmation`
+
+(See [docs/EMAIL_CONFIRMATION.md](EMAIL_CONFIRMATION.md) for the full design.) A user confirming their email doesn't have a JWT yet either — the whole point of the flow is to let them get one (via the not-yet-implemented Login) afterward.
+
+How this exception stays safe:
+
+- **Confirm**: the request carries only a raw token — no `OrganizationId`, no `UserId`. `identity.usp_EmailConfirmation_Confirm` looks the token up by its hash and reads `OrganizationId`/`UserId` *off that row* — the tenant and user are outputs of the lookup, never inputs from the client. The procedure additionally re-validates that the token's `OrganizationId` matches the looked-up user's actual `OrganizationId` before doing anything (belt-and-suspenders against the composite tenant-safe FK migration 009 already enforces at the schema level).
+- **Resend**: the request carries only an email. `identity.usp_EmailConfirmation_Resend` resolves the eligible user (and therefore their `OrganizationId`) from `NormalizedEmail` server-side; see [docs/EMAIL_CONFIRMATION.md](EMAIL_CONFIRMATION.md) "Resend lookup strategy" for how a theoretical same-email-in-multiple-organizations case is handled (deterministically, not by trusting anything the client supplies).
+- **No cross-tenant leakage even under a lookup failure**: both procedures collapse every invalid/ineligible case into one generic response — a request can't use trial-and-error to discover which organization a given email or token belongs to.
+
+**No endpoint outside these three accepts a client-supplied `OrganizationId` or `UserId`** — this is scoped to the specific operations that must run before a tenant/JWT exists, not a general precedent for trusting client-supplied tenant identifiers anywhere else in the platform.
 
 ## The CurrentTenant / CurrentUser abstraction
 

@@ -308,82 +308,15 @@ internal sealed class AuthService(
             await messageProvider.GetMessagesAsync(MessageKeys.Authentication.UserLoginSuccess, ct));
     }
 
-    public async Task<ServiceResult<bool>> ConfirmEmailAsync(
-        ConfirmEmailRequest request, CancellationToken ct = default)
-    {
-        var tokenHash = tokenHasher.Hash(request.Token);
-
-        var dbResult = await authRepository.ConfirmEmailAsync(new ConfirmEmailDbInput
-        {
-            TokenHash = tokenHash,
-            UsedByIp  = userContext.IpAddress
-        }, ct);
-
-        return dbResult.ResultCode switch
-        {
-            // 0 = success
-            0 => ServiceResultFactory.Success(
-                    true,
-                    InternalResponseCodes.OK,
-                    await messageProvider.GetMessagesAsync(MessageKeys.Authentication.EmailConfirmed, ct)),
-
-            // 4 = already confirmed — idempotent, still a success
-            4 => ServiceResultFactory.Success(
-                    true,
-                    InternalResponseCodes.OK,
-                    await messageProvider.GetMessagesAsync(MessageKeys.Authentication.EmailAlreadyConfirmed, ct)),
-
-            // 2 = expired
-            2 => ServiceResultFactory.Failure<bool>(
-                    InternalResponseCodes.BadRequest,
-                    await messageProvider.GetMessagesAsync(MessageKeys.Authentication.TokenExpired, ct)),
-
-            // 1 = not found, 3 = already used — same response (no information leak)
-            _ => ServiceResultFactory.Failure<bool>(
-                    InternalResponseCodes.BadRequest,
-                    await messageProvider.GetMessagesAsync(MessageKeys.Authentication.InvalidToken, ct))
-        };
-    }
-
-    public async Task<ServiceResult<bool>> ResendConfirmationEmailAsync(
-        ResendConfirmationEmailRequest request, CancellationToken ct = default)
-    {
-        // No-enumeration: always return the same success response regardless of whether the email exists
-        var successMsg = await messageProvider.GetMessagesAsync(MessageKeys.Authentication.ConfirmationEmailSent, ct);
-
-        var user = await authRepository.GetUserConfirmationStatusAsync(request.Email, ct);
-
-        // User not found, already confirmed, or inactive — silently return success (no enumeration)
-        if (user is null || user.IsEmailConfirmed || !user.IsActive)
-            return ServiceResultFactory.Success(true, InternalResponseCodes.OK, successMsg);
-
-        // Generate new token, invalidate previous ones
-        var rawToken    = tokenHasher.GenerateRawToken();
-        var hashedToken = tokenHasher.Hash(rawToken);
-        var expiresAt   = DateTime.UtcNow.AddHours(authOptions.Value.EmailConfirmationExpiryHours);
-
-        await authRepository.SaveConfirmationTokenAsync(new SaveConfirmationTokenDbInput
-        {
-            UserId       = user.UserId,
-            TokenHash    = hashedToken,
-            ExpiresAtUtc = expiresAt,
-            CreatedByIp  = userContext.IpAddress
-        }, ct);
-
-        var confirmationLink = $"{authOptions.Value.ConfirmEmailBaseUrl}?token={Uri.EscapeDataString(rawToken)}";
-
-        var isArabic    = userContext.Language == SystemLanguages.Arabic;
-        var displayName = isArabic && !string.IsNullOrWhiteSpace(user.DisplayNameAr)
-            ? user.DisplayNameAr
-            : user.DisplayNameEn;
-
-        await backgroundJobService.EnqueueAsync(
-            jobType: JobTypes.EmailConfirmation,
-            payload: new EmailConfirmationPayload(request.Email, displayName, confirmationLink, userContext.Language),
-            ct: ct);
-
-        return ServiceResultFactory.Success(true, InternalResponseCodes.OK, successMsg);
-    }
+    // Email confirmation (confirm + resend) lives in the dedicated
+    // Application/Features/EmailConfirmation module (IEmailConfirmationService) —
+    // see docs/EMAIL_CONFIRMATION.md. A ConfirmEmailAsync/ResendConfirmationEmailAsync
+    // pair used to live here, but called identity.usp_Authentication_ConfirmEmail /
+    // SaveConfirmationToken / GetUserConfirmationStatus — none of which exist in any
+    // migration — and used a `long UserId` DbModel shape that doesn't match the
+    // Guid-keyed identity.Users/EmailConfirmationTokens schema migrations 001-011
+    // actually built. No WebApi endpoint ever called them, so removing them deleted
+    // dead, broken code rather than a working abstraction.
 
     public async Task<ServiceResult<bool>> ChangePasswordAsync(
         ChangePasswordRequest request, CancellationToken ct = default)

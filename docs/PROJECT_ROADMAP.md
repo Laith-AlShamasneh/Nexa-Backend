@@ -36,8 +36,8 @@
 
 ## Phase 3 — Identity and Authentication
 
-- Email confirmation (service logic exists in `AuthService`; tokens are now created by Tenant Onboarding — Phase 2 — but the endpoint to *consume* one and mark `Users.IsEmailConfirmed = 1` is not yet implemented; stored procedures referenced by `AuthRepository` do not exist yet — they need to be written against the `identity` schema). **Recommended next module.**
-- Login (same caveat).
+- ✅ **Email Confirmation** — `POST /api/auth/confirm-email` and `POST /api/auth/resend-email-confirmation`, fully implemented end-to-end (database migration 013, Application `IEmailConfirmationService`, Infrastructure repository, WebApi endpoints, rate limiting, audit logging). Atomic, idempotent, concurrency-safe (verified live), enumeration-safe. See [docs/EMAIL_CONFIRMATION.md](EMAIL_CONFIRMATION.md). The old `AuthService.ConfirmEmailAsync`/`ResendConfirmationEmailAsync` (which called nonexistent stored procedures and were never wired to any endpoint) were removed in favor of this dedicated module.
+- Login. **Recommended next module** — see [docs/EMAIL_CONFIRMATION.md](EMAIL_CONFIRMATION.md) "Next recommended module" for why.
 - Refresh-token rotation (schema supports reuse detection via `TokenFamilyId`; confirm the detection logic is actually implemented, not just the columns).
 - Logout.
 - Session revocation (`identity.UserSessions` table exists; no service writes to it yet).

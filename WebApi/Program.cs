@@ -7,6 +7,7 @@ using Serilog;
 using WebApi.Common;
 using WebApi.Common.Exceptions;
 using WebApi.Common.Middlewares;
+using WebApi.Endpoints.Authentication;
 using WebApi.Endpoints.Dev;
 using WebApi.Endpoints.Tenancy;
 
@@ -90,6 +91,21 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+
+    // Looser than registration (10/min, not 5/min): confirm-email in particular is
+    // something a legitimate user might retry a couple of times in quick succession
+    // (double-click, re-opening the email). The per-user cooldown/hourly cap in
+    // identity.usp_EmailConfirmation_Resend is the real abuse control for resend
+    // specifically; this is just the transport-level backstop for both endpoints.
+    options.AddPolicy(RateLimiterPolicies.PublicEmailConfirmation, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 var app = builder.Build();
@@ -131,5 +147,6 @@ app.UseMiddleware<RequestLoggingMiddleware>();
 
 app.MapHealthChecks("/health");
 app.MapOrganizationEndpoints();
+app.MapEmailConfirmationEndpoints();
 
 app.Run();
