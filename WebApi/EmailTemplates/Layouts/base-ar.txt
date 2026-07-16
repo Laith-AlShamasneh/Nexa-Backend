@@ -1,0 +1,14 @@
+{{CompanyName}}
+------------------------------------------------------------
+
+{{Title}}
+
+{{BodyContent}}
+
+{{PrimaryButtonText}}: {{PrimaryButtonUrl}}
+
+{{SecondaryContent}}
+
+------------------------------------------------------------
+{{FooterContent}}
+© {{CurrentYear}} {{CompanyName}}. جميع الحقوق محفوظة.

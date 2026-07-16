@@ -85,6 +85,7 @@ All 12 migrations have been applied to the `Nexa` database on `localhost\SQLEXPR
 - [docs/PROJECT_ROADMAP.md](docs/PROJECT_ROADMAP.md) — phased implementation plan
 - [docs/TENANT_ONBOARDING.md](docs/TENANT_ONBOARDING.md) — the organization-registration workflow, end to end
 - [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) — background-job queue and scheduled-job (recurring) database design
+- [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) — reusable email template system (base layout, design system, RTL/LTR, how to add a template)
 - [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md) — entity classification, tenant ownership, Dapper materialization strategy
 - [docs/database/DATABASE_FINAL_BLUEPRINT.md](docs/database/DATABASE_FINAL_BLUEPRINT.md) — full database design
 - [PRODUCT_CONTEXT.md](PRODUCT_CONTEXT.md) — product vision and business context
@@ -93,6 +94,7 @@ All 12 migrations have been applied to the `Nexa` database on `localhost\SQLEXPR
 
 - Only one real business endpoint exists so far: `POST /api/organizations/register` (Tenant Onboarding — see [docs/TENANT_ONBOARDING.md](docs/TENANT_ONBOARDING.md)). Everything else is `/health` and `/swagger`.
 - No stored procedures exist yet for Authentication or Notifications — the C# repositories reference SP names that must still be written. BackgroundJobs and the new ScheduledJobs (recurring jobs) are fully wired end-to-end (database, Application, Infrastructure, hosted services) and verified live — see [docs/BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md).
+- The email template system (`WebApi/EmailTemplates/`) only has one fully-built template so far — **Email Confirmation**. The other six job handlers that already call `IEmailTemplateService.RenderAsync` (`WelcomeEmail`, `PasswordResetEmail`, `PasswordChangedEmail`, `EmailChangeRequested`, `EmailChanged`, `OrganizationInvitationEmail`) will still throw `FileNotFoundException` at runtime until their own template files are authored — the shared base layout and file convention are ready for them; see [docs/EMAIL_TEMPLATES.md](docs/EMAIL_TEMPLATES.md) "How to add a new template". `Smtp:*` is also still unconfigured (empty placeholders), so no real email actually sends yet regardless.
 - `IUserContext.UserId` and the Authentication DB models use `long` IDs, while the finalized database design uses `Guid` (`UNIQUEIDENTIFIER`) for `Users.Id` — this mismatch needs reconciling before the Identity phase ships (see the Phase 0 cleanup report / remaining risks).
 - Row-Level Security (the planned third layer of tenant-isolation defense) is not yet implemented.
 - No automated tests exist yet.

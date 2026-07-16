@@ -15,13 +15,12 @@ internal sealed class PasswordChangedEmailHandler(
         var placeholders = new Dictionary<string, string>
         {
             ["DisplayName"] = payload.DisplayName,
-            ["ChangeTime"]  = payload.ChangeTime,
-            ["CurrentYear"] = DateTime.UtcNow.Year.ToString()
+            ["ChangeTime"]  = payload.ChangeTime
         };
 
-        var (subject, htmlBody) = await templateService.RenderAsync(
+        var (subject, htmlBody, plainTextBody) = await templateService.RenderAsync(
             JobTypes.PasswordChangedEmail, payload.Language, placeholders, ct);
 
-        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, ct: ct);
+        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, plainTextBody, ct: ct);
     }
 }

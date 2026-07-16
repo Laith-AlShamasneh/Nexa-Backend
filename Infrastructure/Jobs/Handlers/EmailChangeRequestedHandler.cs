@@ -14,16 +14,16 @@ internal sealed class EmailChangeRequestedHandler(
     {
         var placeholders = new Dictionary<string, string>
         {
-            ["DisplayName"]       = payload.DisplayName,
-            ["ConfirmationLink"]  = payload.ConfirmationLink,
-            ["OldEmail"]          = payload.OldEmail,
-            ["NewEmail"]          = payload.RecipientEmail,
-            ["CurrentYear"]       = DateTime.UtcNow.Year.ToString()
+            ["DisplayName"]      = payload.DisplayName,
+            ["ConfirmationLink"] = payload.ConfirmationLink,
+            ["OldEmail"]         = payload.OldEmail,
+            ["NewEmail"]         = payload.RecipientEmail,
+            ["PrimaryButtonUrl"] = payload.ConfirmationLink
         };
 
-        var (subject, htmlBody) = await templateService.RenderAsync(
+        var (subject, htmlBody, plainTextBody) = await templateService.RenderAsync(
             JobTypes.EmailChangeRequested, payload.Language, placeholders, ct);
 
-        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, ct: ct);
+        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, plainTextBody, ct: ct);
     }
 }

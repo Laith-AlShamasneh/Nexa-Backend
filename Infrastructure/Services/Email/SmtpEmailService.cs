@@ -17,6 +17,7 @@ internal sealed class SmtpEmailService(
         string                             to,
         string                             subject,
         string                             htmlBody,
+        string?                            plainTextBody = null,
         IReadOnlyList<EmailAttachmentData>? attachments = null,
         CancellationToken                  ct = default)
     {
@@ -30,12 +31,28 @@ internal sealed class SmtpEmailService(
 
         using var message = new MailMessage
         {
-            From       = new MailAddress(_options.FromAddress, _options.FromName),
-            Subject    = subject,
-            Body       = htmlBody,
-            IsBodyHtml = true
+            From = new MailAddress(_options.FromAddress, _options.FromName),
+            Subject = subject
         };
         message.To.Add(to);
+
+        // A real multipart/alternative message (text/plain + text/html), not just an
+        // HTML body with no fallback — mail clients that prefer plain text render the
+        // text part, and HTML-only mail is a well-known spam-score penalty. When no
+        // plain-text alternative is supplied, fall back to the previous HTML-only body
+        // rather than forcing every caller to provide one.
+        if (plainTextBody is not null)
+        {
+            message.Body = plainTextBody;
+            message.IsBodyHtml = false;
+            message.AlternateViews.Add(
+                AlternateView.CreateAlternateViewFromString(htmlBody, null, "text/html"));
+        }
+        else
+        {
+            message.Body = htmlBody;
+            message.IsBodyHtml = true;
+        }
 
         if (attachments is not null)
         {

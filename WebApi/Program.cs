@@ -7,6 +7,7 @@ using Serilog;
 using WebApi.Common;
 using WebApi.Common.Exceptions;
 using WebApi.Common.Middlewares;
+using WebApi.Endpoints.Dev;
 using WebApi.Endpoints.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -114,6 +115,11 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    // Email-template preview surface — see docs/EMAIL_TEMPLATES.md "Preview process".
+    // Renders real templates with sample data; never sends mail, never reachable
+    // outside Development.
+    app.MapEmailTemplatePreviewEndpoints();
 }
 
 // No authentication middleware exists yet (Phase 3 — Identity and Authentication).

@@ -16,12 +16,15 @@ internal sealed class EmailConfirmationHandler(
         {
             ["DisplayName"]      = payload.DisplayName,
             ["ConfirmationLink"] = payload.ConfirmationLink,
-            ["CurrentYear"]      = DateTime.UtcNow.Year.ToString()
+            // The base layout's CTA button is driven by PrimaryButtonUrl/Text — Url is
+            // per-send dynamic data, so it's set here rather than in the template files
+            // (Text comes from meta.json, static copy — see EmailTemplateService).
+            ["PrimaryButtonUrl"] = payload.ConfirmationLink
         };
 
-        var (subject, htmlBody) = await templateService.RenderAsync(
+        var (subject, htmlBody, plainTextBody) = await templateService.RenderAsync(
             JobTypes.EmailConfirmation, payload.Language, placeholders, ct);
 
-        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, ct: ct);
+        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, plainTextBody, ct: ct);
     }
 }

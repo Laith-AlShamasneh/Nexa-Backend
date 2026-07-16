@@ -13,22 +13,21 @@ internal sealed class OrganizationInvitationEmailHandler(
 
     protected override async Task HandleAsync(OrganizationInvitationEmailPayload payload, CancellationToken ct)
     {
-        var isAr = string.Equals(payload.Language, "ar", StringComparison.OrdinalIgnoreCase);
-        var lang  = isAr ? SystemLanguages.Arabic : SystemLanguages.English;
+        var lang = SystemLanguageExtensions.FromLanguageCode(payload.Language);
 
         var placeholders = new Dictionary<string, string>
         {
-            ["InviterName"]      = isAr ? payload.InviterNameAr : payload.InviterNameEn,
+            ["InviterName"]      = lang.IsRightToLeft() ? payload.InviterNameAr : payload.InviterNameEn,
             ["OrganizationName"] = payload.OrganizationName,
             ["RoleName"]         = payload.RoleName,
             ["AcceptLink"]       = payload.AcceptLink,
             ["ExpiresAt"]        = payload.ExpiresAtUtc.ToString("yyyy-MM-dd HH:mm UTC"),
-            ["CurrentYear"]      = DateTime.UtcNow.Year.ToString()
+            ["PrimaryButtonUrl"] = payload.AcceptLink
         };
 
-        var (subject, htmlBody) = await templateService.RenderAsync(
+        var (subject, htmlBody, plainTextBody) = await templateService.RenderAsync(
             JobTypes.OrganizationInvitationEmail, lang, placeholders, ct);
 
-        await emailService.SendAsync(payload.ToEmail, subject, htmlBody, ct: ct);
+        await emailService.SendAsync(payload.ToEmail, subject, htmlBody, plainTextBody, ct: ct);
     }
 }

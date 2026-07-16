@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
         services.Configure<AuthenticationOptions>(configuration.GetSection("Authentication"));
         services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
         services.Configure<SmtpOptions>(configuration.GetSection("Smtp"));
+        services.Configure<EmailBrandingOptions>(configuration.GetSection("Email:Branding"));
         services.Configure<StorageOptions>(configuration.GetSection("Storage"));
         services.Configure<BackgroundJobOptions>(configuration.GetSection("BackgroundJobs"));
 

@@ -15,13 +15,12 @@ internal sealed class WelcomeEmailHandler(
         var placeholders = new Dictionary<string, string>
         {
             ["DisplayName"] = payload.DisplayName,
-            ["Email"]       = payload.RecipientEmail,
-            ["CurrentYear"] = DateTime.UtcNow.Year.ToString()
+            ["Email"]       = payload.RecipientEmail
         };
 
-        var (subject, htmlBody) = await templateService.RenderAsync(
+        var (subject, htmlBody, plainTextBody) = await templateService.RenderAsync(
             JobTypes.WelcomeEmail, payload.Language, placeholders, ct);
 
-        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, ct: ct);
+        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, plainTextBody, ct: ct);
     }
 }

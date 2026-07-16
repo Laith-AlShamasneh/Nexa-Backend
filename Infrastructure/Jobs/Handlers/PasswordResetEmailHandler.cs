@@ -14,14 +14,14 @@ internal sealed class PasswordResetEmailHandler(
     {
         var placeholders = new Dictionary<string, string>
         {
-            ["DisplayName"] = payload.DisplayName,
-            ["ResetLink"]   = payload.ResetLink,
-            ["CurrentYear"] = DateTime.UtcNow.Year.ToString()
+            ["DisplayName"]      = payload.DisplayName,
+            ["ResetLink"]        = payload.ResetLink,
+            ["PrimaryButtonUrl"] = payload.ResetLink
         };
 
-        var (subject, htmlBody) = await templateService.RenderAsync(
+        var (subject, htmlBody, plainTextBody) = await templateService.RenderAsync(
             JobTypes.PasswordResetEmail, payload.Language, placeholders, ct);
 
-        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, ct: ct);
+        await emailService.SendAsync(payload.RecipientEmail, subject, htmlBody, plainTextBody, ct: ct);
     }
 }

@@ -1,0 +1,3 @@
+Hi {{DisplayName}},
+
+Welcome to {{CompanyName}}! We're glad you're here. To activate your account and start using {{CompanyName}}, please confirm that this is your email address. It only takes one click.

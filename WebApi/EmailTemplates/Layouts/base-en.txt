@@ -1,0 +1,14 @@
+{{CompanyName}}
+------------------------------------------------------------
+
+{{Title}}
+
+{{BodyContent}}
+
+{{PrimaryButtonText}}: {{PrimaryButtonUrl}}
+
+{{SecondaryContent}}
+
+------------------------------------------------------------
+{{FooterContent}}
+(c) {{CurrentYear}} {{CompanyName}}. All rights reserved.
